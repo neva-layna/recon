@@ -20,10 +20,25 @@ import com.reconciliation.kafka.support.RowValues;
 
 import static org.apache.spark.sql.functions.col;
 
+/**
+ * Reads configured Kafka side topics and reports how they explain missing
+ * offsets.
+ */
 public final class SideTopicReconciler {
+    /**
+     * Prevents construction of the reconciler utility.
+     */
     private SideTopicReconciler() {
     }
 
+    /**
+     * Runs side-topic reconciliation when side-topic config is present.
+     *
+     * @param spark active Spark session used to read Kafka
+     * @param config checker configuration with optional side-topic settings
+     * @param gaps gap analytics result to explain
+     * @throws ReconExit when Kafka reads or Avro decoding fail
+     */
     public static void reconcileIfConfigured(SparkSession spark, CheckerConfig config, GapAnalysisResult gaps) {
         if (!config.sideTopicConfig.isPresent()) {
             return;
@@ -56,6 +71,16 @@ public final class SideTopicReconciler {
         System.out.println(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_end");
     }
 
+    /**
+     * Reads one Kafka side topic to the latest offset and decodes Avro payloads.
+     *
+     * @param spark active Spark session used to read Kafka
+     * @param config side-topic Kafka connection settings
+     * @param topic side-topic name to read
+     * @param kind side-topic kind used by the decoder
+     * @return decoded side-topic records
+     * @throws ReconExit when Kafka read or payload decoding fails
+     */
     private static List<SideTopicRecord> readTopic(
         SparkSession spark,
         SideTopicConfig config,
@@ -117,6 +142,12 @@ public final class SideTopicReconciler {
         return decoded;
     }
 
+    /**
+     * Prints bucketed side-topic classification and summary counts.
+     *
+     * @param config side-topic configuration used for topic names
+     * @param classification bucketed classification to print
+     */
     static void printClassification(SideTopicConfig config, SideTopicClassification classification) {
         printBucket(classification.sourceTopic, "canary_explained", config.canaryTopic.orElse("<none>"), classification.canaryExplainedOffsets);
         printBucket(classification.sourceTopic, "dead_letter_explained", config.deadLetterTopic.orElse("<none>"), classification.deadLetterExplainedOffsets);
@@ -138,6 +169,14 @@ public final class SideTopicReconciler {
         );
     }
 
+    /**
+     * Prints one non-empty classification bucket by partition in stable order.
+     *
+     * @param sourceTopic source topic whose offsets are being printed
+     * @param bucket bucket name used in recon output
+     * @param sideTopic side-topic name, or &lt;none&gt; for unresolved offsets
+     * @param offsetsByPartition offsets grouped by source partition
+     */
     private static void printBucket(String sourceTopic, String bucket, String sideTopic, Map<Integer, List<Long>> offsetsByPartition) {
         List<Integer> partitions = new ArrayList<Integer>(offsetsByPartition.keySet());
         Collections.sort(partitions);
@@ -155,6 +194,12 @@ public final class SideTopicReconciler {
         }
     }
 
+    /**
+     * Formats offsets as the compact bracketed list used in side-topic logs.
+     *
+     * @param offsets offsets in display order
+     * @return bracketed comma-separated list without spaces
+     */
     public static String formatOffsets(List<Long> offsets) {
         StringBuilder builder = new StringBuilder("[");
         for (int i = 0; i < offsets.size(); i++) {

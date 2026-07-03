@@ -12,10 +12,27 @@ import java.util.function.Supplier;
 import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconReporter;
 
+/**
+ * Parses Spark configuration into checker configuration objects.
+ */
 public final class ConfigLoader {
+    /**
+     * Prevents construction of the configuration utility.
+     */
     private ConfigLoader() {
     }
 
+    /**
+     * Loads required and optional checker settings, applying defaults and
+     * failing fast for invalid operator input.
+     *
+     * @param lookup configuration lookup source
+     * @param currentDateSupplier supplies the driver date when recon.runDate is
+     *        omitted
+     * @return resolved checker configuration
+     * @throws com.reconciliation.kafka.support.ReconExit when required or typed
+     *         configuration is invalid
+     */
     public static CheckerConfig loadConfig(ConfLookup lookup, Supplier<LocalDate> currentDateSupplier) {
         Optional<String> rootsValue = confOption("recon.inputRoots", lookup);
         List<String> roots = rootsValue.isPresent()
@@ -47,6 +64,15 @@ public final class ConfigLoader {
         );
     }
 
+    /**
+     * Loads optional side-topic reconciliation settings and validates that a
+     * partial configuration is not silently ignored.
+     *
+     * @param lookup configuration lookup source
+     * @return side-topic configuration, or empty when no side-topic keys are set
+     * @throws com.reconciliation.kafka.support.ReconExit when side-topic config
+     *         is incomplete or unsupported
+     */
     public static Optional<SideTopicConfig> loadSideTopicConfig(ConfLookup lookup) {
         Optional<String> sourceTopic = firstConfOption(lookup, "recon.sourceTopic", "recon.sideTopic.sourceTopic");
         Optional<String> bootstrapServers = firstConfOption(
@@ -113,6 +139,13 @@ public final class ConfigLoader {
         ));
     }
 
+    /**
+     * Returns the first configured value from an ordered alias list.
+     *
+     * @param lookup configuration lookup source
+     * @param keys aliases in precedence order
+     * @return first present value, or empty when no alias is configured
+     */
     public static Optional<String> firstConfOption(ConfLookup lookup, String... keys) {
         for (String key : keys) {
             Optional<String> value = confOption(key, lookup);
@@ -123,6 +156,14 @@ public final class ConfigLoader {
         return Optional.empty();
     }
 
+    /**
+     * Looks up a configuration key, accepting both plain recon.* and spark.recon.*
+     * spellings.
+     *
+     * @param key logical checker key
+     * @param lookup configuration lookup source
+     * @return configured value, or empty when neither spelling is present
+     */
     public static Optional<String> confOption(String key, ConfLookup lookup) {
         List<String> aliases = new ArrayList<String>();
         aliases.add(key);
@@ -140,6 +181,16 @@ public final class ConfigLoader {
         return Optional.empty();
     }
 
+    /**
+     * Parses tolerant boolean text used by Spark conf values.
+     *
+     * @param key configuration key to read
+     * @param defaultValue value returned when the key is absent
+     * @param lookup configuration lookup source
+     * @return parsed boolean value
+     * @throws com.reconciliation.kafka.support.ReconExit when the configured
+     *         value is not a supported boolean token
+     */
     public static boolean parseBoolean(String key, boolean defaultValue, ConfLookup lookup) {
         Optional<String> raw = confOption(key, lookup);
         if (!raw.isPresent()) {
@@ -157,6 +208,16 @@ public final class ConfigLoader {
         return defaultValue;
     }
 
+    /**
+     * Parses a non-negative long Spark conf value.
+     *
+     * @param key configuration key to read
+     * @param defaultValue value returned when the key is absent
+     * @param lookup configuration lookup source
+     * @return parsed non-negative value
+     * @throws com.reconciliation.kafka.support.ReconExit when the value is
+     *         negative or not numeric
+     */
     public static long parseNonNegativeLong(String key, long defaultValue, ConfLookup lookup) {
         Optional<String> raw = confOption(key, lookup);
         if (!raw.isPresent()) {
@@ -175,6 +236,16 @@ public final class ConfigLoader {
         return defaultValue;
     }
 
+    /**
+     * Resolves the run date from configuration or the supplied driver date.
+     *
+     * @param lookup configuration lookup source
+     * @param currentDateSupplier fallback supplier used when recon.runDate is
+     *        absent
+     * @return resolved run date plus source label for reporting
+     * @throws com.reconciliation.kafka.support.ReconExit when recon.runDate is
+     *         not yyyy-MM-dd
+     */
     static RunDateResult parseRunDate(ConfLookup lookup, Supplier<LocalDate> currentDateSupplier) {
         Optional<String> raw = confOption("recon.runDate", lookup);
         if (!raw.isPresent()) {
@@ -192,6 +263,12 @@ public final class ConfigLoader {
         }
     }
 
+    /**
+     * Splits a comma-separated configuration value and drops blank items.
+     *
+     * @param text comma-separated text
+     * @return trimmed non-empty values in input order
+     */
     public static List<String> splitCsv(String text) {
         List<String> values = new ArrayList<String>();
         for (String item : text.split(",")) {

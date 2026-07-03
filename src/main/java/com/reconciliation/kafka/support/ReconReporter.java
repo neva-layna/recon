@@ -4,10 +4,21 @@ import java.util.List;
 
 import com.reconciliation.kafka.config.CheckerConfig;
 
+/**
+ * Emits structured reconciliation status lines and final result signals.
+ */
 public final class ReconReporter {
+    /**
+     * Prevents construction of the reporting utility.
+     */
     private ReconReporter() {
     }
 
+    /**
+     * Prints the resolved checker configuration in recon-log format.
+     *
+     * @param config resolved configuration to print
+     */
     public static void printConfig(CheckerConfig config) {
         System.out.println(ReconConstants.RECON_PREFIX + " resolved_configuration_begin");
         System.out.println(ReconConstants.RECON_PREFIX + " recon.inputRoots=" + String.join(",", config.inputRoots));
@@ -32,6 +43,17 @@ public final class ReconReporter {
         System.out.println(ReconConstants.RECON_PREFIX + " resolved_configuration_end");
     }
 
+    /**
+     * Prints the final pass/fail result and either requests JVM exit or throws on
+     * failure when exit-on-completion is disabled.
+     *
+     * @param config resolved configuration controlling exit behavior
+     * @param code final process-style result code
+     * @param reasons failure reasons; empty means pass
+     * @throws ReconExit when exit-on-completion is enabled
+     * @throws RuntimeException when the run failed and exit-on-completion is
+     *         disabled
+     */
     public static void finish(CheckerConfig config, int code, List<String> reasons) {
         if (!reasons.isEmpty()) {
             String message = String.join("; ", reasons);
@@ -48,6 +70,13 @@ public final class ReconReporter {
         }
     }
 
+    /**
+     * Immediately prints a terminal result and raises a JVM-exit signal.
+     *
+     * @param code process-style result code
+     * @param message operator-facing reason
+     * @throws ReconExit always, carrying the requested code and message
+     */
     public static void stopNow(int code, String message) {
         if (code == 0) {
             System.out.println(ReconConstants.RECON_PREFIX + " RESULT: PASS " + message);

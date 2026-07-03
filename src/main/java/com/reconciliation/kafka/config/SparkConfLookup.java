@@ -9,13 +9,32 @@ import org.apache.spark.sql.SparkSession;
 
 import scala.Option;
 
+/**
+ * Configuration lookup backed by Spark runtime conf, SparkConf, and the
+ * submitted Java command line.
+ */
 public final class SparkConfLookup implements ConfLookup {
+    /**
+     * Active Spark session used for runtime and SparkConf configuration lookups.
+     */
     private final SparkSession spark;
 
+    /**
+     * Creates a lookup for the active Spark session.
+     *
+     * @param spark Spark session whose configuration is queried
+     */
     public SparkConfLookup(SparkSession spark) {
         this.spark = spark;
     }
 
+    /**
+     * Resolves a key from runtime SQL conf, SparkConf, then sun.java.command
+     * --conf tokens.
+     *
+     * @param key exact key to resolve
+     * @return first non-blank value found in fallback order
+     */
     @Override
     public Optional<String> get(String key) {
         Optional<String> runtimeValue = fromRuntimeConf(key);
@@ -31,6 +50,13 @@ public final class SparkConfLookup implements ConfLookup {
         return fromJavaCommand(key);
     }
 
+    /**
+     * Reads Spark SQL runtime configuration, treating absent or invalid keys as
+     * empty.
+     *
+     * @param key exact runtime configuration key
+     * @return non-blank runtime value, or empty
+     */
     private Optional<String> fromRuntimeConf(String key) {
         try {
             return clean(spark.conf().get(key));
@@ -41,6 +67,13 @@ public final class SparkConfLookup implements ConfLookup {
         }
     }
 
+    /**
+     * Reads the lower-level SparkConf when SQL runtime conf did not contain a
+     * value.
+     *
+     * @param key exact SparkConf key
+     * @return non-blank SparkConf value, or empty
+     */
     private Optional<String> fromSparkConf(String key) {
         Option<String> option = spark.sparkContext().getConf().getOption(key);
         if (option.isDefined()) {
@@ -49,6 +82,13 @@ public final class SparkConfLookup implements ConfLookup {
         return Optional.empty();
     }
 
+    /**
+     * Recovers --conf key=value settings from sun.java.command for environments
+     * where Spark filters plain recon.* keys from runtime conf.
+     *
+     * @param key exact key to search for in command tokens
+     * @return non-blank command-line value, or empty
+     */
     private Optional<String> fromJavaCommand(String key) {
         String command = System.getProperty("sun.java.command", "");
         List<String> tokens = Arrays.asList(command.split("\\s+"));
@@ -68,6 +108,12 @@ public final class SparkConfLookup implements ConfLookup {
         return Optional.empty();
     }
 
+    /**
+     * Trims a configuration value and treats null or blank text as absent.
+     *
+     * @param value raw configuration value
+     * @return trimmed value, or empty
+     */
     private Optional<String> clean(String value) {
         if (value == null) {
             return Optional.empty();

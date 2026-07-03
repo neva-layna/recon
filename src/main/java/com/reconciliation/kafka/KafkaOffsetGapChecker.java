@@ -25,10 +25,23 @@ import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconExit;
 import com.reconciliation.kafka.support.ReconReporter;
 
+/**
+ * Spark application entrypoint for scanning Kafka metadata in parquet partitions
+ * and reporting offset gaps.
+ */
 public final class KafkaOffsetGapChecker {
+    /**
+     * Prevents construction of the command-line application class.
+     */
     private KafkaOffsetGapChecker() {
     }
 
+    /**
+     * Starts the Spark session, runs reconciliation, stops Spark, and exits with
+     * the code requested by the checker.
+     *
+     * @param args command-line arguments accepted by Spark but not read here
+     */
     public static void main(String[] args) {
         SparkSession spark = SparkSession.builder()
             .appName("Kafka Offset Gap Checker")
@@ -48,6 +61,16 @@ public final class KafkaOffsetGapChecker {
         }
     }
 
+    /**
+     * Executes the full checker flow: load config, scan eligible partitions,
+     * normalize metadata, analyze gaps, optionally reconcile side topics, and
+     * report the final result.
+     *
+     * @param spark active Spark session used for configuration, filesystem, and
+     *        DataFrame work
+     * @throws ReconExit when the run should stop with an operator-visible exit
+     *         code
+     */
     static void run(SparkSession spark) {
         CheckerConfig config = ConfigLoader.loadConfig(
             new SparkConfLookup(spark),

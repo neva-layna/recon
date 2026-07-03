@@ -11,10 +11,26 @@ import java.util.Set;
 import com.reconciliation.kafka.model.GapAnalysisResult;
 import com.reconciliation.kafka.model.MissingOffsetReport;
 
+/**
+ * Matches bounded missing offsets against decoded side-topic source records.
+ */
 public final class SideTopicClassifier {
+    /**
+     * Prevents construction of the classifier utility.
+     */
     private SideTopicClassifier() {
     }
 
+    /**
+     * Classifies missing offsets as canary-explained, dead-letter-explained, or
+     * unresolved.
+     *
+     * @param sourceTopic source topic used to build missing-offset keys
+     * @param gaps gap analytics result containing bounded missing offsets
+     * @param canaryRecords decoded canary side-topic records
+     * @param deadLetterRecords decoded dead-letter side-topic records
+     * @return bucketed classification and summary counts
+     */
     public static SideTopicClassification classify(
         String sourceTopic,
         GapAnalysisResult gaps,
@@ -56,6 +72,14 @@ public final class SideTopicClassifier {
         );
     }
 
+    /**
+     * Finds source keys from decoded side-topic records that are in the missing
+     * offset set.
+     *
+     * @param missing missing-offset keys from gap analytics
+     * @param records decoded side-topic records
+     * @return matched missing-offset keys in encounter order
+     */
     private static Set<MissingOffsetKey> matchingKeys(Set<MissingOffsetKey> missing, List<SideTopicRecord> records) {
         Set<MissingOffsetKey> matches = new LinkedHashSet<MissingOffsetKey>();
         for (SideTopicRecord record : records) {
@@ -67,6 +91,12 @@ public final class SideTopicClassifier {
         return matches;
     }
 
+    /**
+     * Groups sorted missing-offset keys into partition-to-offset lists.
+     *
+     * @param keys missing-offset keys to group
+     * @return offsets keyed by source partition
+     */
     private static Map<Integer, List<Long>> toPartitionOffsetMap(Set<MissingOffsetKey> keys) {
         List<MissingOffsetKey> sorted = new ArrayList<MissingOffsetKey>(keys);
         Collections.sort(sorted);
@@ -80,6 +110,14 @@ public final class SideTopicClassifier {
         return byPartition;
     }
 
+    /**
+     * Counts matched dead-letter records that contain one diagnostic field.
+     *
+     * @param records decoded dead-letter records
+     * @param matchedKeys source keys that explain missing offsets
+     * @param field diagnostic field to count
+     * @return matched record count with that field present
+     */
     private static long countDeadLetterField(
         List<SideTopicRecord> records,
         Set<MissingOffsetKey> matchedKeys,
@@ -105,9 +143,21 @@ public final class SideTopicClassifier {
         return count;
     }
 
+    /**
+     * Dead-letter diagnostic fields included in summary counts.
+     */
     private enum DeadLetterField {
+        /**
+         * failureEventId field on decoded dead-letter records.
+         */
         FAILURE_EVENT_ID,
+        /**
+         * reasonMsg field on decoded dead-letter records.
+         */
         REASON_MSG,
+        /**
+         * exception field on decoded dead-letter records.
+         */
         EXCEPTION
     }
 }

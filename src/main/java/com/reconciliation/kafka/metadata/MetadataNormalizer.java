@@ -29,12 +29,31 @@ import static org.apache.spark.sql.functions.sum;
 import static org.apache.spark.sql.functions.trim;
 import static org.apache.spark.sql.functions.when;
 
+/**
+ * Reads eligible parquet partitions and normalizes embedded Kafka metadata into
+ * partition/offset rows.
+ */
 public final class MetadataNormalizer {
+    /**
+     * Numeric-only pattern used before casting metadata strings to Spark numbers.
+     */
     private static final String NUMERIC_PATTERN = "^[0-9]+$";
 
+    /**
+     * Prevents construction of the metadata utility.
+     */
     private MetadataNormalizer() {
     }
 
+    /**
+     * Reads all eligible parquet paths as a single Spark dataset.
+     *
+     * @param spark active Spark session
+     * @param paths parquet paths selected by the partition scanner
+     * @return input parquet dataset
+     * @throws com.reconciliation.kafka.support.ReconExit when Spark cannot read
+     *         the selected paths
+     */
     public static Dataset<Row> readEligibleParquet(SparkSession spark, List<String> paths) {
         try {
             return spark.read().parquet(paths.toArray(new String[paths.size()]));
@@ -44,6 +63,16 @@ public final class MetadataNormalizer {
         }
     }
 
+    /**
+     * Parses the configured metadata JSON column, reports quality counts, and
+     * returns only valid partition/offset rows.
+     *
+     * @param input eligible parquet rows
+     * @param config checker configuration with metadata column settings
+     * @return normalized offsets plus valid and invalid row counts
+     * @throws com.reconciliation.kafka.support.ReconExit when input data is
+     *         empty, lacks the metadata column, or has no valid offsets
+     */
     public static NormalizeResult normalizeOffsets(Dataset<Row> input, CheckerConfig config) {
         long inputRows = input.count();
         System.out.println(ReconConstants.RECON_PREFIX + " eligible_row_count=" + inputRows);
@@ -136,14 +165,39 @@ public final class MetadataNormalizer {
         return new NormalizeResult(normalized, invalidRows, validRows);
     }
 
+    /**
+     * Builds a Spark column reference that safely quotes arbitrary column names.
+     *
+     * @param name source column name
+     * @return quoted Spark SQL column
+     */
     public static Column quotedColumn(String name) {
         return col("`" + name.replace("`", "``") + "`");
     }
 
+    /**
+     * Produces a long count aggregation for rows matching a condition.
+     *
+     * @param condition Spark boolean condition to count
+     * @param alias output column alias
+     * @return aggregation column cast to long
+     */
     public static Column countWhen(Column condition, String alias) {
         return sum(when(condition, lit(1L)).otherwise(lit(0L))).cast(DataTypes.LongType).as(alias);
     }
 
+    /**
+     * Optionally writes normalized offsets to parquet and re-reads them for
+     * downstream analytics.
+     *
+     * @param spark active Spark session
+     * @param normalized normalized partition/offset rows
+     * @param config checker configuration with optional persistence path
+     * @return original dataset when persistence is disabled, otherwise the
+     *         persisted dataset projected back to the expected schema
+     * @throws com.reconciliation.kafka.support.ReconExit when configured write or
+     *         readback fails
+     */
     public static Dataset<Row> persistIfConfigured(SparkSession spark, Dataset<Row> normalized, CheckerConfig config) {
         if (!config.normalizedOffsetsPath.isPresent()) {
             System.out.println(ReconConstants.RECON_PREFIX + " normalized_offsets_persisted=false");

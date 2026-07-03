@@ -32,10 +32,26 @@ import static org.apache.spark.sql.functions.min;
 import static org.apache.spark.sql.functions.sequence;
 import static org.apache.spark.sql.functions.sum;
 
+/**
+ * Computes partition-level Kafka offset statistics from normalized parquet rows.
+ */
 public final class OffsetAnalytics {
+    /**
+     * Prevents construction of the analytics utility.
+     */
     private OffsetAnalytics() {
     }
 
+    /**
+     * Prints row counts, duplicate counts, per-partition gap statistics, and gap
+     * summaries for normalized partition/offset pairs.
+     *
+     * @param analyticsInput normalized rows with partition and offset columns
+     * @param config checker configuration controlling output limits
+     * @return gap count and bounded missing-offset reports by partition
+     * @throws com.reconciliation.kafka.support.ReconExit when analytics has no
+     *         usable rows
+     */
     public static GapAnalysisResult printGapStats(Dataset<Row> analyticsInput, CheckerConfig config) {
         long normalizedRowCount = analyticsInput.count();
         if (normalizedRowCount == 0L) {
@@ -130,6 +146,15 @@ public final class OffsetAnalytics {
         return new GapAnalysisResult(gapCount, missingOffsetReports);
     }
 
+    /**
+     * Builds ordered missing-offset reports for partitions that have gaps.
+     *
+     * @param distinctOffsets distinct partition/offset pairs
+     * @param stats per-partition statistics containing has_gaps and
+     *        missing_offset_count
+     * @param limit maximum concrete offsets to materialize per partition
+     * @return reports keyed by partition, including truncation flags
+     */
     public static Map<Integer, MissingOffsetReport> buildMissingOffsetReports(
         Dataset<Row> distinctOffsets,
         Dataset<Row> stats,
@@ -187,6 +212,12 @@ public final class OffsetAnalytics {
         return reports;
     }
 
+    /**
+     * Formats missing offsets as the compact bracketed list used in recon logs.
+     *
+     * @param offsets missing offsets in display order
+     * @return bracketed comma-separated list without spaces
+     */
     public static String formatMissingOffsets(List<Long> offsets) {
         StringBuilder builder = new StringBuilder("[");
         for (int i = 0; i < offsets.size(); i++) {

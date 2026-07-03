@@ -19,12 +19,31 @@ import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconExit;
 import com.reconciliation.kafka.support.ReconReporter;
 
+/**
+ * Discovers eligible Hive-style date partitions under configured input roots.
+ */
 public final class PartitionScanner {
+    /**
+     * Directory name date pattern accepted after the configured partition prefix.
+     */
     private static final Pattern HIVE_DATE_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}$");
 
+    /**
+     * Prevents construction of the scanner utility.
+     */
     private PartitionScanner() {
     }
 
+    /**
+     * Scans one root directory and classifies immediate children as eligible,
+     * skipped run-date, invalid date, or non-matching paths.
+     *
+     * @param spark active Spark session used for Hadoop filesystem access
+     * @param rootText configured input root path
+     * @param config checker configuration with partition column and run date
+     * @return scan result for the root
+     * @throws ReconExit when the root cannot be listed or is not a directory
+     */
     public static RootScan scanRoot(SparkSession spark, String rootText, CheckerConfig config) {
         String prefix = config.datePartitionColumn + "=";
         FileStatus[] statuses = listImmediateChildren(spark, rootText);
@@ -63,6 +82,16 @@ public final class PartitionScanner {
         return new RootScan(rootText, eligible, skippedRunDate, ignoredInvalidDate, ignoredNonMatching);
     }
 
+    /**
+     * Lists direct children of a configured root after validating that the root
+     * exists and is a directory.
+     *
+     * @param spark active Spark session used for Hadoop configuration
+     * @param rootText configured root path
+     * @return immediate Hadoop file statuses
+     * @throws ReconExit when the root is missing, not a directory, or cannot be
+     *         listed
+     */
     static FileStatus[] listImmediateChildren(SparkSession spark, String rootText) {
         try {
             Path rootPath = new Path(rootText);
@@ -83,6 +112,11 @@ public final class PartitionScanner {
         }
     }
 
+    /**
+     * Prints the scan result buckets in stable recon-log form.
+     *
+     * @param scans root scan results to print
+     */
     public static void printScan(List<RootScan> scans) {
         System.out.println(ReconConstants.RECON_PREFIX + " partition_scan_begin");
         for (RootScan scan : scans) {
@@ -108,6 +142,12 @@ public final class PartitionScanner {
         System.out.println(ReconConstants.RECON_PREFIX + " partition_scan_end");
     }
 
+    /**
+     * Returns unique eligible parquet paths sorted lexicographically.
+     *
+     * @param eligiblePartitions eligible partitions from all roots
+     * @return sorted distinct path strings
+     */
     public static List<String> distinctSortedPaths(List<EligiblePartition> eligiblePartitions) {
         List<String> paths = new ArrayList<String>();
         for (EligiblePartition partition : eligiblePartitions) {
