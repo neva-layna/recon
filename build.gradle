@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.reconciliation'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+application {
+    mainClass = 'com.reconciliation.kafka.KafkaOffsetGapChecker'
+}
+
+dependencies {
+    compileOnly 'org.apache.spark:spark-sql_2.12:3.5.6'
+    testImplementation 'org.apache.spark:spark-sql_2.12:3.5.6'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    if (JavaVersion.current().isJava9Compatible()) {
+        options.release = 8
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
+}
+
+jar {
+    archiveBaseName = 'recon-kafka-offset-gap-checker'
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+}

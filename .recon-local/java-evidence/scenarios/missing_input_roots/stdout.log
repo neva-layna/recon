@@ -1,0 +1,1 @@
+[recon] RESULT: FAIL Missing required Spark conf recon.inputRoots; provide a comma-separated list of root paths

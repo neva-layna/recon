@@ -1,0 +1,1 @@
+/Users/nlayna/.zenith/projects/20260702T075835Z-create-a-spark-shell-script-to-check-parquet-data-for-kafka-offs/.zenith/AGENTS.md

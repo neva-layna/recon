@@ -1,0 +1,1 @@
+/opt/spark/bin/spark-shell --master local\[\*\] --conf spark.sql.session.timeZone=UTC --conf recon.fixtureOutputRoot=/recon-local/java-fixtures --conf recon.fixtureRunDate=2026-07-02 -i /workspace/tests/fixtures/generate_kafka_offset_gap_fixtures.scala 

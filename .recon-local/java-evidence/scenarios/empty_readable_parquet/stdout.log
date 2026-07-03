@@ -1,0 +1,21 @@
+[recon] resolved_configuration_begin
+[recon] recon.inputRoots=/recon-local/java-fixtures/empty/readable_empty/root_a
+[recon] recon.metadataColumn=cactus__metadata
+[recon] recon.datePartitionColumn=timestampcolumn
+[recon] recon.runDate=2026-07-02
+[recon] recon.runDateSource=spark_conf:recon.runDate
+[recon] recon.normalizedOffsetsPath=<none>
+[recon] recon.normalizedOffsetsOverwrite=true
+[recon] recon.failOnInvalidRows=true
+[recon] recon.failOnGaps=true
+[recon] recon.missingOffsetsLimit=1000
+[recon] recon.exitOnCompletion=true
+[recon] resolved_configuration_end
+[recon] partition_scan_begin
+[recon] root=/recon-local/java-fixtures/empty/readable_empty/root_a
+[recon] root=/recon-local/java-fixtures/empty/readable_empty/root_a eligible_count=1
+[recon] eligible_path root=/recon-local/java-fixtures/empty/readable_empty/root_a date=2026-07-01 path=file:/recon-local/java-fixtures/empty/readable_empty/root_a/timestampcolumn=2026-07-01
+[recon] partition_scan_end
+[recon] eligible_path_count=1
+[recon] eligible_row_count=0
+[recon] RESULT: FAIL Eligible parquet data contained zero rows

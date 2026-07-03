@@ -1,0 +1,7 @@
+/recon-local/java-fixtures/cache/normalized_offsets
+/recon-local/java-fixtures/cache/normalized_offsets/part-00000-aba615cd-39f1-49b9-a28c-5de01f0eb745-c000.snappy.parquet
+/recon-local/java-fixtures/cache/normalized_offsets/.part-00000-aba615cd-39f1-49b9-a28c-5de01f0eb745-c000.snappy.parquet.crc
+/recon-local/java-fixtures/cache/normalized_offsets/part-00001-aba615cd-39f1-49b9-a28c-5de01f0eb745-c000.snappy.parquet
+/recon-local/java-fixtures/cache/normalized_offsets/.part-00001-aba615cd-39f1-49b9-a28c-5de01f0eb745-c000.snappy.parquet.crc
+/recon-local/java-fixtures/cache/normalized_offsets/_SUCCESS
+/recon-local/java-fixtures/cache/normalized_offsets/._SUCCESS.crc

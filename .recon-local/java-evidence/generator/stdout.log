@@ -1,0 +1,17 @@
+Spark context Web UI available at http://064b77ed9c92:4040
+Spark context available as 'sc' (master = local[*], app id = local-1783066363682).
+Spark session available as 'spark'.
+[recon-fixtures] output_root=/recon-local/java-fixtures
+[recon-fixtures] metadata_column=cactus__metadata
+[recon-fixtures] date_partition_column=timestampcolumn
+[recon-fixtures] old_date=2026-07-01
+[recon-fixtures] run_date=2026-07-02
+[recon-fixtures] pass_roots=/recon-local/java-fixtures/pass/root_a,/recon-local/java-fixtures/pass/root_b
+[recon-fixtures] split_roots=/recon-local/java-fixtures/split/root_a,/recon-local/java-fixtures/split/root_b
+[recon-fixtures] gap_root=/recon-local/java-fixtures/gap/root_a
+[recon-fixtures] gap_over_limit_root=/recon-local/java-fixtures/gap_over_limit/root_a
+[recon-fixtures] duplicate_root=/recon-local/java-fixtures/duplicate/root_a
+[recon-fixtures] today_skipped_root=/recon-local/java-fixtures/today_skipped/root_a
+[recon-fixtures] scan_noise_root=/recon-local/java-fixtures/scan_noise/root_a
+[recon-fixtures] cache_path=/recon-local/java-fixtures/cache/normalized_offsets
+[recon-fixtures] generation_complete=true

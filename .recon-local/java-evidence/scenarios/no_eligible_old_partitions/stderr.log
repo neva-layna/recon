@@ -1,0 +1,58 @@
+26/07/03 08:14:11 INFO SparkContext: Running Spark version 3.5.6
+26/07/03 08:14:11 INFO SparkContext: OS info Linux, 6.12.76-linuxkit, aarch64
+26/07/03 08:14:11 INFO SparkContext: Java version 11.0.27
+26/07/03 08:14:11 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+26/07/03 08:14:11 INFO ResourceUtils: ==============================================================
+26/07/03 08:14:11 INFO ResourceUtils: No custom resources configured for spark.driver.
+26/07/03 08:14:11 INFO ResourceUtils: ==============================================================
+26/07/03 08:14:11 INFO SparkContext: Submitted application: Kafka Offset Gap Checker
+26/07/03 08:14:11 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 1, script: , vendor: , memory -> name: memory, amount: 1024, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+26/07/03 08:14:11 INFO ResourceProfile: Limiting resource is cpu
+26/07/03 08:14:11 INFO ResourceProfileManager: Added ResourceProfile id: 0
+26/07/03 08:14:11 INFO SecurityManager: Changing view acls to: spark
+26/07/03 08:14:11 INFO SecurityManager: Changing modify acls to: spark
+26/07/03 08:14:11 INFO SecurityManager: Changing view acls groups to: 
+26/07/03 08:14:11 INFO SecurityManager: Changing modify acls groups to: 
+26/07/03 08:14:11 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users with view permissions: spark; groups with view permissions: EMPTY; users with modify permissions: spark; groups with modify permissions: EMPTY
+26/07/03 08:14:11 INFO Utils: Successfully started service 'sparkDriver' on port 34263.
+26/07/03 08:14:11 INFO SparkEnv: Registering MapOutputTracker
+26/07/03 08:14:11 INFO SparkEnv: Registering BlockManagerMaster
+26/07/03 08:14:11 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+26/07/03 08:14:11 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+26/07/03 08:14:11 INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+26/07/03 08:14:11 INFO DiskBlockManager: Created local directory at /tmp/blockmgr-00be77a7-cb12-4a72-8a56-7571ecfbf08c
+26/07/03 08:14:11 INFO MemoryStore: MemoryStore started with capacity 434.4 MiB
+26/07/03 08:14:11 INFO SparkEnv: Registering OutputCommitCoordinator
+26/07/03 08:14:11 INFO JettyUtils: Start Jetty 0.0.0.0:4040 for SparkUI
+26/07/03 08:14:11 INFO Utils: Successfully started service 'SparkUI' on port 4040.
+26/07/03 08:14:11 INFO SparkContext: Added JAR file:/workspace/build/libs/recon-kafka-offset-gap-checker-1.0.0.jar at spark://064b77ed9c92:34263/jars/recon-kafka-offset-gap-checker-1.0.0.jar with timestamp 1783066451402
+26/07/03 08:14:11 INFO Executor: Starting executor ID driver on host 064b77ed9c92
+26/07/03 08:14:11 INFO Executor: OS info Linux, 6.12.76-linuxkit, aarch64
+26/07/03 08:14:11 INFO Executor: Java version 11.0.27
+26/07/03 08:14:11 INFO Executor: Starting executor with user classpath (userClassPathFirst = false): ''
+26/07/03 08:14:11 INFO Executor: Created or updated repl class loader org.apache.spark.util.MutableURLClassLoader@29b40b3 for default.
+26/07/03 08:14:11 INFO Executor: Fetching spark://064b77ed9c92:34263/jars/recon-kafka-offset-gap-checker-1.0.0.jar with timestamp 1783066451402
+26/07/03 08:14:11 INFO TransportClientFactory: Successfully created connection to 064b77ed9c92/172.17.0.2:34263 after 11 ms (0 ms spent in bootstraps)
+26/07/03 08:14:11 INFO Utils: Fetching spark://064b77ed9c92:34263/jars/recon-kafka-offset-gap-checker-1.0.0.jar to /tmp/spark-1383835a-10e8-486e-883c-df0047522ad2/userFiles-e74a6102-16ce-4ef7-904b-c89a1147e298/fetchFileTemp2135604858024504454.tmp
+26/07/03 08:14:11 INFO Executor: Adding file:/tmp/spark-1383835a-10e8-486e-883c-df0047522ad2/userFiles-e74a6102-16ce-4ef7-904b-c89a1147e298/recon-kafka-offset-gap-checker-1.0.0.jar to class loader default
+26/07/03 08:14:11 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 44563.
+26/07/03 08:14:11 INFO NettyBlockTransferService: Server created on 064b77ed9c92:44563
+26/07/03 08:14:11 INFO BlockManager: Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+26/07/03 08:14:11 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 064b77ed9c92, 44563, None)
+26/07/03 08:14:11 INFO BlockManagerMasterEndpoint: Registering block manager 064b77ed9c92:44563 with 434.4 MiB RAM, BlockManagerId(driver, 064b77ed9c92, 44563, None)
+26/07/03 08:14:11 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 064b77ed9c92, 44563, None)
+26/07/03 08:14:11 INFO BlockManager: Initialized BlockManager: BlockManagerId(driver, 064b77ed9c92, 44563, None)
+26/07/03 08:14:11 INFO SharedState: Setting hive.metastore.warehouse.dir ('null') to the value of spark.sql.warehouse.dir.
+26/07/03 08:14:11 INFO SharedState: Warehouse path is 'file:/workspace/spark-warehouse'.
+[recon] ERROR: No eligible old date partition directories found
+26/07/03 08:14:12 INFO SparkContext: SparkContext is stopping with exitCode 0.
+26/07/03 08:14:12 INFO SparkUI: Stopped Spark web UI at http://064b77ed9c92:4040
+26/07/03 08:14:12 INFO MapOutputTrackerMasterEndpoint: MapOutputTrackerMasterEndpoint stopped!
+26/07/03 08:14:12 INFO MemoryStore: MemoryStore cleared
+26/07/03 08:14:12 INFO BlockManager: BlockManager stopped
+26/07/03 08:14:12 INFO BlockManagerMaster: BlockManagerMaster stopped
+26/07/03 08:14:12 INFO OutputCommitCoordinator$OutputCommitCoordinatorEndpoint: OutputCommitCoordinator stopped!
+26/07/03 08:14:12 INFO SparkContext: Successfully stopped SparkContext
+26/07/03 08:14:12 INFO ShutdownHookManager: Shutdown hook called
+26/07/03 08:14:12 INFO ShutdownHookManager: Deleting directory /tmp/spark-1383835a-10e8-486e-883c-df0047522ad2
+26/07/03 08:14:12 INFO ShutdownHookManager: Deleting directory /tmp/spark-27b47f87-f9ee-4c12-bfa7-ae688a0281fb

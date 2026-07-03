@@ -1,0 +1,1 @@
+/opt/spark/bin/spark-submit --class com.reconciliation.kafka.KafkaOffsetGapChecker --master local\[\*\] --conf spark.sql.session.timeZone=UTC --conf spark.recon.inputRoots=/recon-local/java-fixtures/empty/readable_empty/root_a --conf spark.recon.runDate=2026-07-02 /workspace/build/libs/recon-kafka-offset-gap-checker-1.0.0.jar 

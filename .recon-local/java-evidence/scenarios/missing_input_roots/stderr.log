@@ -1,0 +1,58 @@
+26/07/03 08:14:13 INFO SparkContext: Running Spark version 3.5.6
+26/07/03 08:14:13 INFO SparkContext: OS info Linux, 6.12.76-linuxkit, aarch64
+26/07/03 08:14:13 INFO SparkContext: Java version 11.0.27
+26/07/03 08:14:13 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+26/07/03 08:14:13 INFO ResourceUtils: ==============================================================
+26/07/03 08:14:13 INFO ResourceUtils: No custom resources configured for spark.driver.
+26/07/03 08:14:13 INFO ResourceUtils: ==============================================================
+26/07/03 08:14:13 INFO SparkContext: Submitted application: Kafka Offset Gap Checker
+26/07/03 08:14:13 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 1, script: , vendor: , memory -> name: memory, amount: 1024, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+26/07/03 08:14:13 INFO ResourceProfile: Limiting resource is cpu
+26/07/03 08:14:13 INFO ResourceProfileManager: Added ResourceProfile id: 0
+26/07/03 08:14:13 INFO SecurityManager: Changing view acls to: spark
+26/07/03 08:14:13 INFO SecurityManager: Changing modify acls to: spark
+26/07/03 08:14:13 INFO SecurityManager: Changing view acls groups to: 
+26/07/03 08:14:13 INFO SecurityManager: Changing modify acls groups to: 
+26/07/03 08:14:13 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users with view permissions: spark; groups with view permissions: EMPTY; users with modify permissions: spark; groups with modify permissions: EMPTY
+26/07/03 08:14:13 INFO Utils: Successfully started service 'sparkDriver' on port 33591.
+26/07/03 08:14:13 INFO SparkEnv: Registering MapOutputTracker
+26/07/03 08:14:13 INFO SparkEnv: Registering BlockManagerMaster
+26/07/03 08:14:13 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+26/07/03 08:14:13 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+26/07/03 08:14:13 INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+26/07/03 08:14:13 INFO DiskBlockManager: Created local directory at /tmp/blockmgr-f11b04be-5d18-44c6-abe9-e7873d53e5dc
+26/07/03 08:14:13 INFO MemoryStore: MemoryStore started with capacity 434.4 MiB
+26/07/03 08:14:13 INFO SparkEnv: Registering OutputCommitCoordinator
+26/07/03 08:14:13 INFO JettyUtils: Start Jetty 0.0.0.0:4040 for SparkUI
+26/07/03 08:14:13 INFO Utils: Successfully started service 'SparkUI' on port 4040.
+26/07/03 08:14:13 INFO SparkContext: Added JAR file:/workspace/build/libs/recon-kafka-offset-gap-checker-1.0.0.jar at spark://064b77ed9c92:33591/jars/recon-kafka-offset-gap-checker-1.0.0.jar with timestamp 1783066453023
+26/07/03 08:14:13 INFO Executor: Starting executor ID driver on host 064b77ed9c92
+26/07/03 08:14:13 INFO Executor: OS info Linux, 6.12.76-linuxkit, aarch64
+26/07/03 08:14:13 INFO Executor: Java version 11.0.27
+26/07/03 08:14:13 INFO Executor: Starting executor with user classpath (userClassPathFirst = false): ''
+26/07/03 08:14:13 INFO Executor: Created or updated repl class loader org.apache.spark.util.MutableURLClassLoader@29b40b3 for default.
+26/07/03 08:14:13 INFO Executor: Fetching spark://064b77ed9c92:33591/jars/recon-kafka-offset-gap-checker-1.0.0.jar with timestamp 1783066453023
+26/07/03 08:14:13 INFO TransportClientFactory: Successfully created connection to 064b77ed9c92/172.17.0.2:33591 after 10 ms (0 ms spent in bootstraps)
+26/07/03 08:14:13 INFO Utils: Fetching spark://064b77ed9c92:33591/jars/recon-kafka-offset-gap-checker-1.0.0.jar to /tmp/spark-59d75372-4cc5-4b5c-8489-602dc2fb380f/userFiles-11e9b5a9-e1b0-4526-9867-be3ebe09b698/fetchFileTemp2997962877724321115.tmp
+26/07/03 08:14:13 INFO Executor: Adding file:/tmp/spark-59d75372-4cc5-4b5c-8489-602dc2fb380f/userFiles-11e9b5a9-e1b0-4526-9867-be3ebe09b698/recon-kafka-offset-gap-checker-1.0.0.jar to class loader default
+26/07/03 08:14:13 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 38829.
+26/07/03 08:14:13 INFO NettyBlockTransferService: Server created on 064b77ed9c92:38829
+26/07/03 08:14:13 INFO BlockManager: Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+26/07/03 08:14:13 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 064b77ed9c92, 38829, None)
+26/07/03 08:14:13 INFO BlockManagerMasterEndpoint: Registering block manager 064b77ed9c92:38829 with 434.4 MiB RAM, BlockManagerId(driver, 064b77ed9c92, 38829, None)
+26/07/03 08:14:13 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 064b77ed9c92, 38829, None)
+26/07/03 08:14:13 INFO BlockManager: Initialized BlockManager: BlockManagerId(driver, 064b77ed9c92, 38829, None)
+26/07/03 08:14:13 INFO SharedState: Setting hive.metastore.warehouse.dir ('null') to the value of spark.sql.warehouse.dir.
+26/07/03 08:14:13 INFO SharedState: Warehouse path is 'file:/workspace/spark-warehouse'.
+[recon] ERROR: Missing required Spark conf recon.inputRoots; provide a comma-separated list of root paths
+26/07/03 08:14:13 INFO SparkContext: SparkContext is stopping with exitCode 0.
+26/07/03 08:14:13 INFO SparkUI: Stopped Spark web UI at http://064b77ed9c92:4040
+26/07/03 08:14:13 INFO MapOutputTrackerMasterEndpoint: MapOutputTrackerMasterEndpoint stopped!
+26/07/03 08:14:13 INFO MemoryStore: MemoryStore cleared
+26/07/03 08:14:13 INFO BlockManager: BlockManager stopped
+26/07/03 08:14:13 INFO BlockManagerMaster: BlockManagerMaster stopped
+26/07/03 08:14:13 INFO OutputCommitCoordinator$OutputCommitCoordinatorEndpoint: OutputCommitCoordinator stopped!
+26/07/03 08:14:13 INFO SparkContext: Successfully stopped SparkContext
+26/07/03 08:14:13 INFO ShutdownHookManager: Shutdown hook called
+26/07/03 08:14:13 INFO ShutdownHookManager: Deleting directory /tmp/spark-59d75372-4cc5-4b5c-8489-602dc2fb380f
+26/07/03 08:14:13 INFO ShutdownHookManager: Deleting directory /tmp/spark-96831398-9809-4741-8e6d-ef221ad9c36c

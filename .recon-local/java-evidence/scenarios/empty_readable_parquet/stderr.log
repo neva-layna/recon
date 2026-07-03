@@ -1,0 +1,139 @@
+26/07/03 08:14:07 INFO SparkContext: Running Spark version 3.5.6
+26/07/03 08:14:07 INFO SparkContext: OS info Linux, 6.12.76-linuxkit, aarch64
+26/07/03 08:14:07 INFO SparkContext: Java version 11.0.27
+26/07/03 08:14:07 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+26/07/03 08:14:07 INFO ResourceUtils: ==============================================================
+26/07/03 08:14:07 INFO ResourceUtils: No custom resources configured for spark.driver.
+26/07/03 08:14:07 INFO ResourceUtils: ==============================================================
+26/07/03 08:14:07 INFO SparkContext: Submitted application: Kafka Offset Gap Checker
+26/07/03 08:14:07 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 1, script: , vendor: , memory -> name: memory, amount: 1024, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+26/07/03 08:14:07 INFO ResourceProfile: Limiting resource is cpu
+26/07/03 08:14:07 INFO ResourceProfileManager: Added ResourceProfile id: 0
+26/07/03 08:14:07 INFO SecurityManager: Changing view acls to: spark
+26/07/03 08:14:07 INFO SecurityManager: Changing modify acls to: spark
+26/07/03 08:14:07 INFO SecurityManager: Changing view acls groups to: 
+26/07/03 08:14:07 INFO SecurityManager: Changing modify acls groups to: 
+26/07/03 08:14:07 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users with view permissions: spark; groups with view permissions: EMPTY; users with modify permissions: spark; groups with modify permissions: EMPTY
+26/07/03 08:14:07 INFO Utils: Successfully started service 'sparkDriver' on port 41061.
+26/07/03 08:14:07 INFO SparkEnv: Registering MapOutputTracker
+26/07/03 08:14:07 INFO SparkEnv: Registering BlockManagerMaster
+26/07/03 08:14:07 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+26/07/03 08:14:07 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+26/07/03 08:14:07 INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+26/07/03 08:14:07 INFO DiskBlockManager: Created local directory at /tmp/blockmgr-a72ea539-9f24-4f5b-968c-1985ed8890fd
+26/07/03 08:14:07 INFO MemoryStore: MemoryStore started with capacity 434.4 MiB
+26/07/03 08:14:07 INFO SparkEnv: Registering OutputCommitCoordinator
+26/07/03 08:14:07 INFO JettyUtils: Start Jetty 0.0.0.0:4040 for SparkUI
+26/07/03 08:14:07 INFO Utils: Successfully started service 'SparkUI' on port 4040.
+26/07/03 08:14:07 INFO SparkContext: Added JAR file:/workspace/build/libs/recon-kafka-offset-gap-checker-1.0.0.jar at spark://064b77ed9c92:41061/jars/recon-kafka-offset-gap-checker-1.0.0.jar with timestamp 1783066447420
+26/07/03 08:14:07 INFO Executor: Starting executor ID driver on host 064b77ed9c92
+26/07/03 08:14:07 INFO Executor: OS info Linux, 6.12.76-linuxkit, aarch64
+26/07/03 08:14:07 INFO Executor: Java version 11.0.27
+26/07/03 08:14:07 INFO Executor: Starting executor with user classpath (userClassPathFirst = false): ''
+26/07/03 08:14:07 INFO Executor: Created or updated repl class loader org.apache.spark.util.MutableURLClassLoader@49d30c6f for default.
+26/07/03 08:14:07 INFO Executor: Fetching spark://064b77ed9c92:41061/jars/recon-kafka-offset-gap-checker-1.0.0.jar with timestamp 1783066447420
+26/07/03 08:14:07 INFO TransportClientFactory: Successfully created connection to 064b77ed9c92/172.17.0.2:41061 after 10 ms (0 ms spent in bootstraps)
+26/07/03 08:14:07 INFO Utils: Fetching spark://064b77ed9c92:41061/jars/recon-kafka-offset-gap-checker-1.0.0.jar to /tmp/spark-676bb73f-5ced-4a72-96f4-87a47eca073e/userFiles-3fbad187-a7bb-4314-a388-184a0ca0661f/fetchFileTemp9485313439285249159.tmp
+26/07/03 08:14:07 INFO Executor: Adding file:/tmp/spark-676bb73f-5ced-4a72-96f4-87a47eca073e/userFiles-3fbad187-a7bb-4314-a388-184a0ca0661f/recon-kafka-offset-gap-checker-1.0.0.jar to class loader default
+26/07/03 08:14:07 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 40779.
+26/07/03 08:14:07 INFO NettyBlockTransferService: Server created on 064b77ed9c92:40779
+26/07/03 08:14:07 INFO BlockManager: Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+26/07/03 08:14:07 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 064b77ed9c92, 40779, None)
+26/07/03 08:14:07 INFO BlockManagerMasterEndpoint: Registering block manager 064b77ed9c92:40779 with 434.4 MiB RAM, BlockManagerId(driver, 064b77ed9c92, 40779, None)
+26/07/03 08:14:07 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 064b77ed9c92, 40779, None)
+26/07/03 08:14:07 INFO BlockManager: Initialized BlockManager: BlockManagerId(driver, 064b77ed9c92, 40779, None)
+26/07/03 08:14:07 INFO SharedState: Setting hive.metastore.warehouse.dir ('null') to the value of spark.sql.warehouse.dir.
+26/07/03 08:14:07 INFO SharedState: Warehouse path is 'file:/workspace/spark-warehouse'.
+26/07/03 08:14:08 INFO InMemoryFileIndex: It took 15 ms to list leaf files for 1 paths.
+26/07/03 08:14:08 INFO SparkContext: Starting job: parquet at MetadataNormalizer.java:40
+26/07/03 08:14:08 INFO DAGScheduler: Got job 0 (parquet at MetadataNormalizer.java:40) with 1 output partitions
+26/07/03 08:14:08 INFO DAGScheduler: Final stage: ResultStage 0 (parquet at MetadataNormalizer.java:40)
+26/07/03 08:14:08 INFO DAGScheduler: Parents of final stage: List()
+26/07/03 08:14:08 INFO DAGScheduler: Missing parents: List()
+26/07/03 08:14:08 INFO DAGScheduler: Submitting ResultStage 0 (MapPartitionsRDD[1] at parquet at MetadataNormalizer.java:40), which has no missing parents
+26/07/03 08:14:08 INFO MemoryStore: Block broadcast_0 stored as values in memory (estimated size 103.6 KiB, free 434.3 MiB)
+26/07/03 08:14:08 INFO MemoryStore: Block broadcast_0_piece0 stored as bytes in memory (estimated size 37.4 KiB, free 434.3 MiB)
+26/07/03 08:14:08 INFO BlockManagerInfo: Added broadcast_0_piece0 in memory on 064b77ed9c92:40779 (size: 37.4 KiB, free: 434.4 MiB)
+26/07/03 08:14:08 INFO SparkContext: Created broadcast 0 from broadcast at DAGScheduler.scala:1611
+26/07/03 08:14:08 INFO DAGScheduler: Submitting 1 missing tasks from ResultStage 0 (MapPartitionsRDD[1] at parquet at MetadataNormalizer.java:40) (first 15 tasks are for partitions Vector(0))
+26/07/03 08:14:08 INFO TaskSchedulerImpl: Adding task set 0.0 with 1 tasks resource profile 0
+26/07/03 08:14:08 INFO TaskSetManager: Starting task 0.0 in stage 0.0 (TID 0) (064b77ed9c92, executor driver, partition 0, PROCESS_LOCAL, 9410 bytes) 
+26/07/03 08:14:08 INFO Executor: Running task 0.0 in stage 0.0 (TID 0)
+26/07/03 08:14:08 INFO Executor: Finished task 0.0 in stage 0.0 (TID 0). 1712 bytes result sent to driver
+26/07/03 08:14:08 INFO TaskSetManager: Finished task 0.0 in stage 0.0 (TID 0) in 138 ms on 064b77ed9c92 (executor driver) (1/1)
+26/07/03 08:14:08 INFO TaskSchedulerImpl: Removed TaskSet 0.0, whose tasks have all completed, from pool 
+26/07/03 08:14:08 INFO DAGScheduler: ResultStage 0 (parquet at MetadataNormalizer.java:40) finished in 0.191 s
+26/07/03 08:14:08 INFO DAGScheduler: Job 0 is finished. Cancelling potential speculative or zombie tasks for this job
+26/07/03 08:14:08 INFO TaskSchedulerImpl: Killing all running tasks in stage 0: Stage finished
+26/07/03 08:14:08 INFO DAGScheduler: Job 0 finished: parquet at MetadataNormalizer.java:40, took 0.203567 s
+26/07/03 08:14:08 INFO BlockManagerInfo: Removed broadcast_0_piece0 on 064b77ed9c92:40779 in memory (size: 37.4 KiB, free: 434.4 MiB)
+26/07/03 08:14:08 INFO FileSourceStrategy: Pushed Filters: 
+26/07/03 08:14:08 INFO FileSourceStrategy: Post-Scan Filters: 
+26/07/03 08:14:09 INFO CodeGenerator: Code generated in 72.769042 ms
+26/07/03 08:14:09 INFO MemoryStore: Block broadcast_1 stored as values in memory (estimated size 201.2 KiB, free 434.2 MiB)
+26/07/03 08:14:09 INFO MemoryStore: Block broadcast_1_piece0 stored as bytes in memory (estimated size 35.0 KiB, free 434.2 MiB)
+26/07/03 08:14:09 INFO BlockManagerInfo: Added broadcast_1_piece0 in memory on 064b77ed9c92:40779 (size: 35.0 KiB, free: 434.4 MiB)
+26/07/03 08:14:09 INFO SparkContext: Created broadcast 1 from count at MetadataNormalizer.java:48
+26/07/03 08:14:09 INFO FileSourceScanExec: Planning scan with bin packing, max size: 4194304 bytes, open cost is considered as scanning 4194304 bytes.
+26/07/03 08:14:09 INFO DAGScheduler: Registering RDD 5 (count at MetadataNormalizer.java:48) as input to shuffle 0
+26/07/03 08:14:09 INFO DAGScheduler: Got map stage job 1 (count at MetadataNormalizer.java:48) with 1 output partitions
+26/07/03 08:14:09 INFO DAGScheduler: Final stage: ShuffleMapStage 1 (count at MetadataNormalizer.java:48)
+26/07/03 08:14:09 INFO DAGScheduler: Parents of final stage: List()
+26/07/03 08:14:09 INFO DAGScheduler: Missing parents: List()
+26/07/03 08:14:09 INFO DAGScheduler: Submitting ShuffleMapStage 1 (MapPartitionsRDD[5] at count at MetadataNormalizer.java:48), which has no missing parents
+26/07/03 08:14:09 INFO MemoryStore: Block broadcast_2 stored as values in memory (estimated size 17.0 KiB, free 434.2 MiB)
+26/07/03 08:14:09 INFO MemoryStore: Block broadcast_2_piece0 stored as bytes in memory (estimated size 7.8 KiB, free 434.1 MiB)
+26/07/03 08:14:09 INFO BlockManagerInfo: Added broadcast_2_piece0 in memory on 064b77ed9c92:40779 (size: 7.8 KiB, free: 434.4 MiB)
+26/07/03 08:14:09 INFO SparkContext: Created broadcast 2 from broadcast at DAGScheduler.scala:1611
+26/07/03 08:14:09 INFO DAGScheduler: Submitting 1 missing tasks from ShuffleMapStage 1 (MapPartitionsRDD[5] at count at MetadataNormalizer.java:48) (first 15 tasks are for partitions Vector(0))
+26/07/03 08:14:09 INFO TaskSchedulerImpl: Adding task set 1.0 with 1 tasks resource profile 0
+26/07/03 08:14:09 INFO TaskSetManager: Starting task 0.0 in stage 1.0 (TID 1) (064b77ed9c92, executor driver, partition 0, PROCESS_LOCAL, 9906 bytes) 
+26/07/03 08:14:09 INFO Executor: Running task 0.0 in stage 1.0 (TID 1)
+26/07/03 08:14:09 INFO CodeGenerator: Code generated in 7.48 ms
+26/07/03 08:14:09 INFO FileScanRDD: Reading File path: file:///recon-local/java-fixtures/empty/readable_empty/root_a/timestampcolumn=2026-07-01/part-00000-1804e057-2f55-4da8-8c6d-b8cf6329ea6c-c000.snappy.parquet, range: 0-422, partition values: [empty row]
+26/07/03 08:14:09 INFO Executor: Finished task 0.0 in stage 1.0 (TID 1). 2093 bytes result sent to driver
+26/07/03 08:14:09 INFO TaskSetManager: Finished task 0.0 in stage 1.0 (TID 1) in 54 ms on 064b77ed9c92 (executor driver) (1/1)
+26/07/03 08:14:09 INFO TaskSchedulerImpl: Removed TaskSet 1.0, whose tasks have all completed, from pool 
+26/07/03 08:14:09 INFO DAGScheduler: ShuffleMapStage 1 (count at MetadataNormalizer.java:48) finished in 0.070 s
+26/07/03 08:14:09 INFO DAGScheduler: looking for newly runnable stages
+26/07/03 08:14:09 INFO DAGScheduler: running: Set()
+26/07/03 08:14:09 INFO DAGScheduler: waiting: Set()
+26/07/03 08:14:09 INFO DAGScheduler: failed: Set()
+26/07/03 08:14:09 INFO CodeGenerator: Code generated in 5.988917 ms
+26/07/03 08:14:09 INFO BlockManagerInfo: Removed broadcast_2_piece0 on 064b77ed9c92:40779 in memory (size: 7.8 KiB, free: 434.4 MiB)
+26/07/03 08:14:09 INFO SparkContext: Starting job: count at MetadataNormalizer.java:48
+26/07/03 08:14:09 INFO DAGScheduler: Got job 2 (count at MetadataNormalizer.java:48) with 1 output partitions
+26/07/03 08:14:09 INFO DAGScheduler: Final stage: ResultStage 3 (count at MetadataNormalizer.java:48)
+26/07/03 08:14:09 INFO DAGScheduler: Parents of final stage: List(ShuffleMapStage 2)
+26/07/03 08:14:09 INFO DAGScheduler: Missing parents: List()
+26/07/03 08:14:09 INFO DAGScheduler: Submitting ResultStage 3 (MapPartitionsRDD[8] at count at MetadataNormalizer.java:48), which has no missing parents
+26/07/03 08:14:09 INFO MemoryStore: Block broadcast_3 stored as values in memory (estimated size 12.5 KiB, free 434.2 MiB)
+26/07/03 08:14:09 INFO MemoryStore: Block broadcast_3_piece0 stored as bytes in memory (estimated size 5.9 KiB, free 434.2 MiB)
+26/07/03 08:14:09 INFO BlockManagerInfo: Added broadcast_3_piece0 in memory on 064b77ed9c92:40779 (size: 5.9 KiB, free: 434.4 MiB)
+26/07/03 08:14:09 INFO SparkContext: Created broadcast 3 from broadcast at DAGScheduler.scala:1611
+26/07/03 08:14:09 INFO DAGScheduler: Submitting 1 missing tasks from ResultStage 3 (MapPartitionsRDD[8] at count at MetadataNormalizer.java:48) (first 15 tasks are for partitions Vector(0))
+26/07/03 08:14:09 INFO TaskSchedulerImpl: Adding task set 3.0 with 1 tasks resource profile 0
+26/07/03 08:14:09 INFO TaskSetManager: Starting task 0.0 in stage 3.0 (TID 2) (064b77ed9c92, executor driver, partition 0, NODE_LOCAL, 9198 bytes) 
+26/07/03 08:14:09 INFO Executor: Running task 0.0 in stage 3.0 (TID 2)
+26/07/03 08:14:09 INFO ShuffleBlockFetcherIterator: Getting 1 (60.0 B) non-empty blocks including 1 (60.0 B) local and 0 (0.0 B) host-local and 0 (0.0 B) push-merged-local and 0 (0.0 B) remote blocks
+26/07/03 08:14:09 INFO ShuffleBlockFetcherIterator: Started 0 remote fetches in 2 ms
+26/07/03 08:14:09 INFO CodeGenerator: Code generated in 4.19075 ms
+26/07/03 08:14:09 INFO Executor: Finished task 0.0 in stage 3.0 (TID 2). 3988 bytes result sent to driver
+26/07/03 08:14:09 INFO TaskSetManager: Finished task 0.0 in stage 3.0 (TID 2) in 28 ms on 064b77ed9c92 (executor driver) (1/1)
+26/07/03 08:14:09 INFO TaskSchedulerImpl: Removed TaskSet 3.0, whose tasks have all completed, from pool 
+26/07/03 08:14:09 INFO DAGScheduler: ResultStage 3 (count at MetadataNormalizer.java:48) finished in 0.033 s
+26/07/03 08:14:09 INFO DAGScheduler: Job 2 is finished. Cancelling potential speculative or zombie tasks for this job
+26/07/03 08:14:09 INFO TaskSchedulerImpl: Killing all running tasks in stage 3: Stage finished
+26/07/03 08:14:09 INFO DAGScheduler: Job 2 finished: count at MetadataNormalizer.java:48, took 0.036425 s
+[recon] ERROR: Eligible parquet data contained zero rows
+26/07/03 08:14:09 INFO SparkContext: SparkContext is stopping with exitCode 0.
+26/07/03 08:14:09 INFO SparkUI: Stopped Spark web UI at http://064b77ed9c92:4040
+26/07/03 08:14:09 INFO MapOutputTrackerMasterEndpoint: MapOutputTrackerMasterEndpoint stopped!
+26/07/03 08:14:09 INFO MemoryStore: MemoryStore cleared
+26/07/03 08:14:09 INFO BlockManager: BlockManager stopped
+26/07/03 08:14:09 INFO BlockManagerMaster: BlockManagerMaster stopped
+26/07/03 08:14:09 INFO OutputCommitCoordinator$OutputCommitCoordinatorEndpoint: OutputCommitCoordinator stopped!
+26/07/03 08:14:09 INFO SparkContext: Successfully stopped SparkContext
+26/07/03 08:14:09 INFO ShutdownHookManager: Shutdown hook called
+26/07/03 08:14:09 INFO ShutdownHookManager: Deleting directory /tmp/spark-676bb73f-5ced-4a72-96f4-87a47eca073e
+26/07/03 08:14:09 INFO ShutdownHookManager: Deleting directory /tmp/spark-06e4e1b4-6b0c-42b2-93f0-7b219b8142bb

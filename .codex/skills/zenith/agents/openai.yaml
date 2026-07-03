@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zenith"
+  short_description: "Run long missions through Zenith"
+  default_prompt: "Use $zenith to run this mission through the Zenith harness."

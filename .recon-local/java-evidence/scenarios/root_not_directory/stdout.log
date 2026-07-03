@@ -1,0 +1,14 @@
+[recon] resolved_configuration_begin
+[recon] recon.inputRoots=/recon-local/java-evidence/scenario_results.tsv
+[recon] recon.metadataColumn=cactus__metadata
+[recon] recon.datePartitionColumn=timestampcolumn
+[recon] recon.runDate=2026-07-02
+[recon] recon.runDateSource=spark_conf:recon.runDate
+[recon] recon.normalizedOffsetsPath=<none>
+[recon] recon.normalizedOffsetsOverwrite=true
+[recon] recon.failOnInvalidRows=true
+[recon] recon.failOnGaps=true
+[recon] recon.missingOffsetsLimit=1000
+[recon] recon.exitOnCompletion=true
+[recon] resolved_configuration_end
+[recon] RESULT: FAIL Configured input root is not a directory: /recon-local/java-evidence/scenario_results.tsv

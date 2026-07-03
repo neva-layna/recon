@@ -1,0 +1,2 @@
+pass
+regex=partition=0 .*missing_offset_count=1 .*has_gaps=true .*missing_offsets=\[1\] .*missing_offsets_limit=1000 .*missing_offsets_truncated=false

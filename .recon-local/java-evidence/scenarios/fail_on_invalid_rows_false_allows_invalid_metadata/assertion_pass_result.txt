@@ -1,0 +1,2 @@
+pass
+regex=RESULT: PASS

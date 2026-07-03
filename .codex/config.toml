@@ -1,0 +1,35 @@
+model = "gpt-5.5"
+sandbox_mode = "danger-full-access"
+model_reasoning_effort = "xhigh"
+[features]
+memories = true
+# BEGIN zenith
+[mcp_servers.zenith]
+command = "uv"
+args = ["run", "--project", "/Users/nlayna/git/reconciliation/zenith", "zenith-server", "--mode", "orchestrator"]
+startup_timeout_sec = 10
+tool_timeout_sec = 1000000
+
+[mcp_servers.zenith.env]
+ZENITH_ORCHESTRATOR_PROVIDER = "codex"
+ZENITH_WORKER_PROVIDER = "codex"
+ZENITH_WORKER_ACP_COMMAND = "codex-acp"
+
+[mcp_servers.zenith.tools.start_project]
+approval_mode = "approve"
+
+[mcp_servers.zenith.tools.submit_plan]
+approval_mode = "approve"
+
+[mcp_servers.zenith.tools.advance_project]
+approval_mode = "approve"
+
+[mcp_servers.zenith.tools.inspect_project]
+approval_mode = "approve"
+
+[mcp_servers.zenith.tools.decide_attention]
+approval_mode = "approve"
+
+[mcp_servers.zenith.tools.end_mission]
+approval_mode = "approve"
+# END zenith
