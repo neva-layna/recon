@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Gradle local state and build outputs
+.gradle/
+build/
+
+# Local Spark/Docker validation fixtures and evidence
+.recon-local/
+
+# JVM build artifacts
+*.class
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp

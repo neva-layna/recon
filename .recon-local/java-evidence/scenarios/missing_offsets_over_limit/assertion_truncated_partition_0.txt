@@ -1,2 +1,0 @@
-pass
-regex=partition=0 .*missing_offset_count=3 .*has_gaps=true .*missing_offsets=\[1,2\] .*missing_offsets_limit=2 .*missing_offsets_truncated=true

@@ -1,5 +1,0 @@
-Warning: Ignoring non-Spark config property: recon.fixtureOutputRoot
-Warning: Ignoring non-Spark config property: recon.fixtureRunDate
-Setting default log level to "WARN".
-To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
-26/07/03 08:12:43 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable

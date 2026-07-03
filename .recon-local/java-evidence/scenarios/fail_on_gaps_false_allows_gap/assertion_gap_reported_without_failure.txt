@@ -1,2 +1,0 @@
-pass
-regex=partition=0 .*missing_offset_count=1 .*has_gaps=true .*missing_offsets=\[1\]

@@ -1,2 +1,0 @@
-pass
-regex=recon.failOnInvalidRows=false

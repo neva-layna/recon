@@ -1,1 +1,0 @@
-[recon] RESULT: FAIL Invalid Spark conf recon.runDate=not-a-date; expected yyyy-MM-dd: Text 'not-a-date' could not be parsed at index 0
