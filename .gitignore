@@ -4,9 +4,12 @@
 # Gradle local state and build outputs
 .gradle/
 build/
+bin/
 
 # Local Spark/Docker validation fixtures and evidence
 .recon-local/
+.recon-local-side/
+.recon-validator/
 
 # JVM build artifacts
 *.class

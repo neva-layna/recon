@@ -22,6 +22,66 @@ FAIL_ON_INVALID_ROWS="${FAIL_ON_INVALID_ROWS:-true}"
 FAIL_ON_GAPS="${FAIL_ON_GAPS:-true}"
 EXIT_ON_COMPLETION="${EXIT_ON_COMPLETION:-true}"
 INPUT_ROOTS_CSV="${INPUT_ROOTS_CSV:-}"
+SOURCE_TOPIC="${SOURCE_TOPIC:-}"
+KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS:-}"
+CANARY_TOPIC="${CANARY_TOPIC:-}"
+DEAD_LETTER_TOPIC="${DEAD_LETTER_TOPIC:-}"
+SIDE_TOPIC_STARTING_OFFSETS="${SIDE_TOPIC_STARTING_OFFSETS:-earliest}"
+SPARK_PACKAGES="${SPARK_PACKAGES:-}"
+SPARK_JARS_IVY="${SPARK_JARS_IVY:-}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  scripts/run_java_kafka_offset_gap_check_prod.sh ROOT [ROOT ...]
+  INPUT_ROOTS_CSV='hdfs:///root-a,hdfs:///root-b' scripts/run_java_kafka_offset_gap_check_prod.sh
+
+Build first:
+  GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+
+Runtime:
+  Spark 3.5.x only, Scala 2.12 Spark artifacts, Java 8-compatible checker jar.
+  Side-topic reconciliation requires Kafka 3.x brokers and the Spark 3.5 Kafka connector.
+
+Base environment:
+  SPARK_SUBMIT_BIN              default: spark-submit
+  SPARK_MASTER                  default: yarn
+  CHECKER_JAR                   default: build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+  CHECKER_CLASS                 default: com.reconciliation.kafka.KafkaOffsetGapChecker
+  SPARK_SQL_TIMEZONE            default: UTC
+  INPUT_ROOTS_CSV               comma-separated roots when no positional roots are used
+  METADATA_COLUMN               default: cactus__metadata
+  DATE_PARTITION_COLUMN         default: timestampcolumn
+  RUN_DATE                      default: current shell date
+  NORMALIZED_OFFSETS_PATH       optional parquet cache path
+  NORMALIZED_OFFSETS_OVERWRITE  default: true
+  MISSING_OFFSETS_LIMIT         default: 1000
+  FAIL_ON_INVALID_ROWS          default: true
+  FAIL_ON_GAPS                  default: true
+  EXIT_ON_COMPLETION            default: true
+
+Side-topic environment, Java spark-submit feature only:
+  SOURCE_TOPIC                  source Kafka topic identity to match
+  KAFKA_BOOTSTRAP_SERVERS       Kafka 3.x bootstrap servers
+  CANARY_TOPIC                  optional canary/heartbeat side topic
+  DEAD_LETTER_TOPIC             optional dead-letter side topic
+  SIDE_TOPIC_STARTING_OFFSETS   default: earliest; accepts earliest or beginning
+  SPARK_PACKAGES                optional override for spark-submit --packages
+  SPARK_JARS_IVY                optional writable Ivy cache forwarded as spark.jars.ivy
+
+Setting any side-topic variable enables side-topic reconciliation. SOURCE_TOPIC,
+KAFKA_BOOTSTRAP_SERVERS, and at least one of CANARY_TOPIC or DEAD_LETTER_TOPIC
+are then required. The wrapper forwards checker values as spark.recon.* keys and,
+for side-topic runs, adds Spark 3.5 Kafka/Avro packages unless SPARK_PACKAGES is set.
+USAGE
+}
+
+case "${1:-}" in
+  -h|--help|help)
+    usage
+    exit 0
+    ;;
+esac
 
 if [[ "$#" -gt 0 ]]; then
   INPUT_ROOTS_CSV="$(IFS=,; echo "$*")"
@@ -54,9 +114,34 @@ spark_conf=(
 if [[ -n "$NORMALIZED_OFFSETS_PATH" ]]; then
   spark_conf+=(--conf "spark.recon.normalizedOffsetsPath=$NORMALIZED_OFFSETS_PATH")
 fi
+if [[ -n "$SPARK_JARS_IVY" ]]; then
+  spark_conf+=(--conf "spark.jars.ivy=$SPARK_JARS_IVY")
+fi
+
+side_topic_requested=false
+if [[ -n "$SOURCE_TOPIC" || -n "$KAFKA_BOOTSTRAP_SERVERS" || -n "$CANARY_TOPIC" || -n "$DEAD_LETTER_TOPIC" ]]; then
+  side_topic_requested=true
+  spark_conf+=(--conf "spark.recon.sourceTopic=$SOURCE_TOPIC")
+  spark_conf+=(--conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS")
+  spark_conf+=(--conf "spark.recon.sideTopicStartingOffsets=$SIDE_TOPIC_STARTING_OFFSETS")
+  if [[ -n "$CANARY_TOPIC" ]]; then
+    spark_conf+=(--conf "spark.recon.canaryTopic=$CANARY_TOPIC")
+  fi
+  if [[ -n "$DEAD_LETTER_TOPIC" ]]; then
+    spark_conf+=(--conf "spark.recon.deadLetterTopic=$DEAD_LETTER_TOPIC")
+  fi
+fi
+
+spark_packages_args=()
+if [[ -n "$SPARK_PACKAGES" ]]; then
+  spark_packages_args=(--packages "$SPARK_PACKAGES")
+elif [[ "$side_topic_requested" == "true" ]]; then
+  spark_packages_args=(--packages "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4")
+fi
 
 exec "$SPARK_SUBMIT_BIN" \
   --class "$CHECKER_CLASS" \
   --master "$SPARK_MASTER" \
+  "${spark_packages_args[@]}" \
   "${spark_conf[@]}" \
   "$CHECKER_JAR"

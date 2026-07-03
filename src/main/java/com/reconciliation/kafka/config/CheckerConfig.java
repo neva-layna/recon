@@ -16,6 +16,7 @@ public final class CheckerConfig {
     public final boolean failOnGaps;
     public final long missingOffsetsLimit;
     public final boolean exitOnCompletion;
+    public final Optional<SideTopicConfig> sideTopicConfig;
 
     public CheckerConfig(
         List<String> inputRoots,
@@ -28,7 +29,8 @@ public final class CheckerConfig {
         boolean failOnInvalidRows,
         boolean failOnGaps,
         long missingOffsetsLimit,
-        boolean exitOnCompletion
+        boolean exitOnCompletion,
+        Optional<SideTopicConfig> sideTopicConfig
     ) {
         this.inputRoots = inputRoots;
         this.metadataColumn = metadataColumn;
@@ -41,5 +43,6 @@ public final class CheckerConfig {
         this.failOnGaps = failOnGaps;
         this.missingOffsetsLimit = missingOffsetsLimit;
         this.exitOnCompletion = exitOnCompletion;
+        this.sideTopicConfig = sideTopicConfig;
     }
 }

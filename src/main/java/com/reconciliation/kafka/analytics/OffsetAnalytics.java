@@ -14,6 +14,7 @@ import org.apache.spark.sql.expressions.WindowSpec;
 import org.apache.spark.sql.types.DataTypes;
 
 import com.reconciliation.kafka.config.CheckerConfig;
+import com.reconciliation.kafka.model.GapAnalysisResult;
 import com.reconciliation.kafka.model.MissingOffsetReport;
 import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconReporter;
@@ -35,7 +36,7 @@ public final class OffsetAnalytics {
     private OffsetAnalytics() {
     }
 
-    public static long printGapStats(Dataset<Row> analyticsInput, CheckerConfig config) {
+    public static GapAnalysisResult printGapStats(Dataset<Row> analyticsInput, CheckerConfig config) {
         long normalizedRowCount = analyticsInput.count();
         if (normalizedRowCount == 0L) {
             ReconReporter.stopNow(2, "Normalized offset dataset contained zero rows before analytics");
@@ -126,7 +127,7 @@ public final class OffsetAnalytics {
             System.out.println(ReconConstants.RECON_PREFIX + " gap_partitions_end");
         }
 
-        return gapCount;
+        return new GapAnalysisResult(gapCount, missingOffsetReports);
     }
 
     public static Map<Integer, MissingOffsetReport> buildMissingOffsetReports(

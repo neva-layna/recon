@@ -43,6 +43,77 @@ The matrix file is written to:
 
 All scenario rows should have `verdict` equal to `pass`.
 
+## Spark+Kafka Docker Side-Topic Validation
+
+Run this matrix when validating the Java side-topic feature. It exists because
+canary/heartbeat messages and broken source messages can be routed to Kafka
+side topics instead of HDFS parquet, so missing parquet offsets must be checked
+against canary and dead-letter topics. The checker scenarios in this matrix use
+Java `spark-submit`; `spark-shell` is used only for fixture generation.
+
+Build the jar first, then run the full side-topic matrix with both Kafka 3.x and
+Spark 3.5.x in Docker:
+
+```bash
+GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+
+scripts/run_java_kafka_side_topic_docker_checks.sh
+```
+
+The Docker wrapper starts `apache/kafka:3.7.0`, creates these topics by
+default, and then runs `scripts/run_java_kafka_side_topic_fixture_checks.sh`
+inside `apache/spark:3.5.6`:
+
+| Topic | Purpose |
+| --- | --- |
+| `orders-canary` | Canary records for source offsets, plus false-match records. |
+| `orders-dlq` | Dead-letter records for combined canary/dead-letter checks. |
+| `orders-dlq-only` | Dead-letter-only scenario. |
+| `orders-bad-canary` | Non-Avro payload for fail-closed decode validation. |
+
+Inside the Spark container, `tests/fixtures/generate_kafka_side_topic_records.scala`
+writes Avro object-container side-topic records to those topics and records a
+manifest at `kafka/side_topic_records.tsv`. The checker scenarios then run
+through Java `spark-submit`. The runner also invokes
+`scripts/run_java_kafka_offset_gap_check_prod.sh` once to capture production
+wrapper side-topic env propagation.
+
+The side-topic matrix file is written to:
+
+```text
+.recon-local-side/evidence/run/scenario_results.tsv
+```
+
+Use these variables to override the Docker defaults:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SPARK_IMAGE` | `apache/spark:3.5.6` | Spark 3.5.x image used to run `spark-submit`. |
+| `KAFKA_IMAGE` | `apache/kafka:3.7.0` | Kafka 3.x broker image. |
+| `NETWORK_NAME` | `recon-side-topic-net` | Docker network for Spark-to-Kafka communication. |
+| `HOST_FIXTURE_ROOT` | `.recon-local-side/fixtures` | Host directory mounted as fixture output. |
+| `HOST_EVIDENCE_ROOT` | `.recon-local-side/evidence` | Host directory mounted as evidence output; run output is under `run/`. |
+| `CLEANUP` | `true` | Remove the Kafka container and Docker network after the run. |
+| `SOURCE_TOPIC` | `orders` | Source topic identity used inside side-topic payloads. |
+| `CANARY_TOPIC` | `orders-canary` | Canary topic name. |
+| `DEAD_LETTER_TOPIC` | `orders-dlq` | Dead-letter topic name. |
+
+If Spark 3.5.x is installed locally and you only need Kafka in Docker, run the
+underlying helper directly:
+
+```bash
+GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+
+SPARK_SHELL_BIN=spark-shell \
+SPARK_SUBMIT_BIN=spark-submit \
+CHECKER_JAR=build/libs/recon-kafka-offset-gap-checker-1.0.0.jar \
+FIXTURE_ROOT=/tmp/recon-kafka-offset-side-topic-fixtures-java \
+EVIDENCE_ROOT=/tmp/recon-kafka-offset-side-topic-evidence-java \
+SPARK_JARS_IVY=/tmp/recon-ivy \
+RUN_DATE=2026-07-02 \
+scripts/run_java_kafka_side_topic_fixture_checks.sh
+```
+
 ## What The Docker Test Does
 
 The Java fixture runner:
@@ -77,6 +148,16 @@ With the quick command above, evidence is written below
 | `scenario_results.tsv` | Full scenario summary table. |
 | `fixture_listing.txt` | Generated fixture file listing. |
 | `cache_listing.txt` | Normalized-offset cache listing. |
+
+Side-topic validation writes the same per-scenario command/stdout/stderr/exit
+files under `scenarios/<scenario>/`, plus:
+
+| Path | Contents |
+| --- | --- |
+| `kafka_version/` | Kafka 3.x version command, output, exit code, verdict. |
+| `kafka/side_topic_records.tsv` | Produced canary/dead-letter/bad-payload manifest. |
+| `side_topic_generator/` | Side-topic fixture producer command, output, exit code, verdict. |
+| `assertion_results.tsv` | Regex assertion matrix for side-topic buckets and config capture. |
 
 ## Scenario Coverage
 
@@ -113,6 +194,20 @@ The Java matrix currently covers:
 | `nonexistent_root` | 2 | Missing filesystem root. |
 | `root_not_directory` | 2 | Configured root is not a directory. |
 | `missing_metadata_column` | 2 | Configured metadata column is absent. |
+
+The side-topic matrix covers:
+
+| Scenario | Expected exit | Purpose |
+| --- | ---: | --- |
+| `canary_only` | 0 | One missing offset is explained by the canary topic. |
+| `dead_letter_only` | 0 | One missing offset is explained by the dead-letter topic and failure fields are counted. |
+| `combined_canary_dead_letter_unresolved` | 0 | Canary, dead-letter, and unresolved buckets appear in one run. |
+| `unresolved_no_matching_side_topic_records` | 0 | Nonmatching side-topic records do not hide unresolved offsets. |
+| `no_side_topic_regression` | 0 | Parquet gap behavior still runs with no side-topic config. |
+| `fail_closed_incomplete_config` | 2 | Partial side-topic config fails before Kafka reads. |
+| `fail_closed_unreachable_bootstrap` | 2 | Unreachable Kafka bootstrap fails closed. |
+| `fail_closed_undecodable_payload` | 2 | Non-Avro side-topic payload fails closed. |
+| `production_wrapper_combined_config_capture` | 0 | Production wrapper env passes side-topic config to `spark-submit`. |
 
 ## Run With Local Spark Instead Of Docker
 
@@ -175,6 +270,8 @@ This validates `scripts/check_kafka_offset_gaps.scala`, not the Java
 | --- | --- | --- |
 | `checker jar not found` | Jar was not built or `CHECKER_JAR` points at the wrong path. | Run `GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar`. |
 | Spark version check fails | Docker image or local Spark is not Spark 3.5.x. | Use `apache/spark:3.5.6` or a Spark 3.5 local install. |
+| Kafka version check fails | The side-topic runner is not using Kafka 3.x. | Use the default `apache/kafka:3.7.0` or another Kafka 3.x image. |
 | Permission errors under `.recon-local` | Docker Spark user cannot write mounted evidence. | Run `mkdir -p .recon-local && chmod 0777 .recon-local`. |
 | Scenario exits differ | Behavior regression or stale fixture data. | Remove `.recon-local`, rebuild the jar, and rerun the matrix. |
 | Docker cannot find the jar | `CHECKER_JAR` uses a host path inside the container. | Use `/workspace/build/libs/recon-kafka-offset-gap-checker-1.0.0.jar`. |
+| Spark package resolution fails in containers | Ivy cache is not writable. | Set `SPARK_JARS_IVY=/tmp/recon-ivy`. |

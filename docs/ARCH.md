@@ -9,6 +9,8 @@ or more root directories. It is implemented in two forms:
   intended for `spark-submit`.
 
 The Java port is the production artifact for new deployments.
+The optional canary/dead-letter side-topic reconciliation exists only in the
+Java `spark-submit` checker.
 
 ## Runtime Model
 
@@ -40,6 +42,7 @@ fat jar.
 | `com.reconciliation.kafka.scan` | Immediate child directory scan, run-date skip, scan reporting. |
 | `com.reconciliation.kafka.metadata` | Parquet read, metadata JSON parsing, invalid-row counts, optional normalized parquet persistence. |
 | `com.reconciliation.kafka.analytics` | Distinct-offset analytics, gap stats, bounded missing-offset materialization. |
+| `com.reconciliation.kafka.sidetopic` | Optional Kafka 3.x side-topic reads, Avro object-container decode, and canary/dead-letter matching. |
 | `com.reconciliation.kafka.model` | Small data carriers such as `RootScan`, `EligiblePartition`, `NormalizeResult`, and `MissingOffsetReport`. |
 | `com.reconciliation.kafka.support` | Shared constants, result/error reporting, row helpers, and controlled exits. |
 
@@ -93,9 +96,13 @@ The checker normalizes valid rows to:
 8. `analytics.OffsetAnalytics` deduplicates `(partition, offset)` pairs for analytics.
 9. `analytics.OffsetAnalytics` computes per-partition min/max/span/expected/missing counts.
 10. `analytics.OffsetAnalytics` materializes bounded missing offset values per partition.
-11. `analytics.OffsetAnalytics` and `support.ReconReporter` print `[recon]` gap statistics and
-    final `RESULT`.
-12. `KafkaOffsetGapChecker` exits with code `0`, `1`, or `2`.
+11. If configured, `sidetopic.SideTopicReconciler` reads Kafka 3.x canary and
+    dead-letter topics through the Spark Kafka source.
+12. `sidetopic.SideTopicReconciler` decodes Avro object-container payloads and
+    buckets materialized missing offsets as canary-explained,
+    dead-letter-explained, or unresolved.
+13. `support.ReconReporter` prints the final `RESULT`.
+14. `KafkaOffsetGapChecker` exits with code `0`, `1`, or `2`.
 
 ## Gap Algorithm
 
@@ -137,6 +144,30 @@ spark.recon.inputRoots
 The alias form is preferred in wrappers because some launchers preserve only
 `spark.*` keys.
 
+## Side-Topic Boundary
+
+Broken source records and canary/heartbeat records may be intentionally routed
+away from the HDFS parquet sink into Kafka side topics. In that case, a missing
+parquet offset is not fully understood until the Java checker has compared it
+with the configured canary and dead-letter topics.
+
+Side-topic reconciliation is intentionally bounded:
+
+- It is a Java `spark-submit` feature only; the Scala `spark-shell -i` checker
+  remains a parquet-gap oracle and does not read side topics.
+- Runtime Spark must be Spark 3.5.x, Spark connector artifacts must use Scala
+  2.12, and Kafka brokers/fixtures must be Kafka 3.x.
+- `recon.sourceTopic`, `recon.kafkaBootstrapServers`, and at least one of
+  `recon.canaryTopic` or `recon.deadLetterTopic` are required when any
+  side-topic config is present.
+- `recon.sideTopicStartingOffsets` accepts `earliest` or `beginning`; both read
+  from the beginning of the side topics.
+- The side-topic classifier uses the bounded `missing_offsets` values from the
+  gap analysis. If `recon.missingOffsetsLimit` truncates that list, the
+  side-topic summary prints `missing_offsets_truncated=true`.
+- Kafka read failures, incomplete side-topic config, and undecodable Avro
+  payloads fail closed with exit code `2`.
+
 ## Artifact Boundary
 
 The Java checker depends on:
@@ -147,6 +178,10 @@ org.apache.spark:spark-sql_2.12:3.5.6
 
 That dependency is `compileOnly` for the application jar. The Spark cluster or
 Docker image supplies Spark at runtime.
+Side-topic runs also require the Spark 3.5 Kafka source package
+`org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6` and Avro
+`org.apache.avro:avro:1.11.4`; the Java production wrapper adds those packages
+for side-topic runs unless `SPARK_PACKAGES` overrides them.
 
 ## Oracle And Parity
 

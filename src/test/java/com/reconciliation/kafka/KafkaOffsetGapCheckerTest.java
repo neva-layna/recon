@@ -1,18 +1,37 @@
 package com.reconciliation.kafka;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import com.reconciliation.kafka.analytics.OffsetAnalytics;
 import com.reconciliation.kafka.config.CheckerConfig;
 import com.reconciliation.kafka.config.ConfLookup;
 import com.reconciliation.kafka.config.ConfigLoader;
+import com.reconciliation.kafka.model.GapAnalysisResult;
+import com.reconciliation.kafka.model.MissingOffsetReport;
+import com.reconciliation.kafka.sidetopic.SideTopicAvroDecoder;
+import com.reconciliation.kafka.sidetopic.SideTopicClassification;
+import com.reconciliation.kafka.sidetopic.SideTopicClassifier;
+import com.reconciliation.kafka.sidetopic.SideTopicKind;
+import com.reconciliation.kafka.sidetopic.SideTopicRecord;
+import com.reconciliation.kafka.sidetopic.SideTopicReconciler;
 import com.reconciliation.kafka.support.ReconExit;
 
 import static org.junit.Assert.assertEquals;
@@ -72,6 +91,7 @@ public class KafkaOffsetGapCheckerTest {
         assertTrue(config.failOnGaps);
         assertEquals(1000L, config.missingOffsetsLimit);
         assertTrue(config.exitOnCompletion);
+        assertFalse(config.sideTopicConfig.isPresent());
     }
 
     @Test
@@ -104,6 +124,130 @@ public class KafkaOffsetGapCheckerTest {
         assertEquals("[]", OffsetAnalytics.formatMissingOffsets(Arrays.<Long>asList()));
     }
 
+    @Test
+    public void loadsSideTopicConfigurationWithAliases() {
+        Map<String, String> conf = new HashMap<String, String>();
+        conf.put("recon.inputRoots", "/data/root-a");
+        conf.put("spark.recon.sideTopic.sourceTopic", "orders");
+        conf.put("spark.recon.kafka.bootstrap.servers", "broker-a:9092");
+        conf.put("spark.recon.sideTopic.canaryTopic", "orders-canary");
+        conf.put("spark.recon.deadLetterTopic", "orders-dlq");
+        conf.put("spark.recon.sideTopicStartingOffsets", "beginning");
+
+        CheckerConfig config = ConfigLoader.loadConfig(new MapLookup(conf), fixedDate("2026-07-04"));
+
+        assertTrue(config.sideTopicConfig.isPresent());
+        assertEquals("orders", config.sideTopicConfig.get().sourceTopic);
+        assertEquals("broker-a:9092", config.sideTopicConfig.get().kafkaBootstrapServers);
+        assertEquals("orders-canary", config.sideTopicConfig.get().canaryTopic.get());
+        assertEquals("orders-dlq", config.sideTopicConfig.get().deadLetterTopic.get());
+        assertEquals("earliest", config.sideTopicConfig.get().startingOffsets);
+    }
+
+    @Test
+    public void rejectsIncompleteSideTopicConfiguration() {
+        Map<String, String> conf = new HashMap<String, String>();
+        conf.put("recon.inputRoots", "/data/root-a");
+        conf.put("spark.recon.canaryTopic", "orders-canary");
+
+        try {
+            ConfigLoader.loadConfig(new MapLookup(conf), fixedDate("2026-07-04"));
+            fail("expected ReconExit");
+        } catch (ReconExit exit) {
+            assertEquals(2, exit.code);
+            assertTrue(exit.getMessage().contains("Incomplete side-topic config"));
+            assertTrue(exit.getMessage().contains("recon.sourceTopic"));
+            assertTrue(exit.getMessage().contains("recon.kafkaBootstrapServers"));
+        }
+    }
+
+    @Test
+    public void rejectsNonEarliestSideTopicReadBehavior() {
+        Map<String, String> conf = new HashMap<String, String>();
+        conf.put("recon.inputRoots", "/data/root-a");
+        conf.put("spark.recon.sourceTopic", "orders");
+        conf.put("spark.recon.kafkaBootstrapServers", "broker-a:9092");
+        conf.put("spark.recon.canaryTopic", "orders-canary");
+        conf.put("spark.recon.sideTopicStartingOffsets", "latest");
+
+        try {
+            ConfigLoader.loadConfig(new MapLookup(conf), fixedDate("2026-07-04"));
+            fail("expected ReconExit");
+        } catch (ReconExit exit) {
+            assertEquals(2, exit.code);
+            assertTrue(exit.getMessage().contains("expected earliest or beginning"));
+        }
+    }
+
+    @Test
+    public void decodesCanaryAvroObjectContainer() throws Exception {
+        byte[] payload = avroPayload(false, "orders", 0, 3L, null, null, null);
+
+        List<SideTopicRecord> records = SideTopicAvroDecoder.decodeContainer(payload, SideTopicKind.CANARY, "orders-canary");
+
+        assertEquals(1, records.size());
+        assertEquals("orders", records.get(0).sourceTopic);
+        assertEquals(0, records.get(0).sourcePartition);
+        assertEquals(3L, records.get(0).sourceOffset);
+        assertFalse(records.get(0).failureEventId.isPresent());
+    }
+
+    @Test
+    public void decodesDeadLetterAvroObjectContainerWithFailureFields() throws Exception {
+        byte[] payload = avroPayload(true, "orders", 1, 5L, "evt-1", "bad value", "IllegalStateException");
+
+        List<SideTopicRecord> records = SideTopicAvroDecoder.decodeContainer(payload, SideTopicKind.DEAD_LETTER, "orders-dlq");
+
+        assertEquals(1, records.size());
+        assertEquals("orders", records.get(0).sourceTopic);
+        assertEquals(1, records.get(0).sourcePartition);
+        assertEquals(5L, records.get(0).sourceOffset);
+        assertEquals("evt-1", records.get(0).failureEventId.get());
+        assertEquals("bad value", records.get(0).reasonMsg.get());
+        assertEquals("IllegalStateException", records.get(0).exception.get());
+    }
+
+    @Test
+    public void classifiesSideTopicsBySourceTopicPartitionAndOffset() {
+        Map<Integer, MissingOffsetReport> missing = new LinkedHashMap<Integer, MissingOffsetReport>();
+        missing.put(0, new MissingOffsetReport(Arrays.asList(1L, 2L, 3L), false));
+        missing.put(1, new MissingOffsetReport(Arrays.asList(7L), false));
+        GapAnalysisResult gaps = new GapAnalysisResult(2L, missing);
+
+        List<SideTopicRecord> canary = new ArrayList<SideTopicRecord>();
+        canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 0, 1L));
+        canary.add(record(SideTopicKind.CANARY, "orders-canary", "other-topic", 0, 2L));
+        canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 9, 7L));
+        List<SideTopicRecord> deadLetter = new ArrayList<SideTopicRecord>();
+        deadLetter.add(new SideTopicRecord(
+            SideTopicKind.DEAD_LETTER,
+            "orders-dlq",
+            "orders",
+            0,
+            2L,
+            Optional.of("evt-2"),
+            Optional.of("reason"),
+            Optional.of("Exception")
+        ));
+
+        SideTopicClassification classification = SideTopicClassifier.classify("orders", gaps, canary, deadLetter);
+
+        assertEquals(Arrays.asList(1L), classification.canaryExplainedOffsets.get(0));
+        assertEquals(Arrays.asList(2L), classification.deadLetterExplainedOffsets.get(0));
+        assertEquals(Arrays.asList(3L), classification.unresolvedOffsets.get(0));
+        assertEquals(Arrays.asList(7L), classification.unresolvedOffsets.get(1));
+        assertEquals(1L, classification.canaryExplainedCount);
+        assertEquals(1L, classification.deadLetterExplainedCount);
+        assertEquals(2L, classification.unresolvedCount);
+        assertEquals(1L, classification.deadLetterFailureEventIdCount);
+    }
+
+    @Test
+    public void formatsSideTopicOffsetsWithoutSpaces() {
+        assertEquals("[4,5]", SideTopicReconciler.formatOffsets(Arrays.asList(4L, 5L)));
+        assertEquals("[]", SideTopicReconciler.formatOffsets(Collections.<Long>emptyList()));
+    }
+
     private static Supplier<LocalDate> fixedDate(final String date) {
         return new Supplier<LocalDate>() {
             @Override
@@ -127,5 +271,92 @@ public class KafkaOffsetGapCheckerTest {
                 ? Optional.<String>empty()
                 : Optional.of(value.trim());
         }
+    }
+
+    private static SideTopicRecord record(
+        SideTopicKind kind,
+        String sideTopic,
+        String sourceTopic,
+        int sourcePartition,
+        long sourceOffset
+    ) {
+        return new SideTopicRecord(
+            kind,
+            sideTopic,
+            sourceTopic,
+            sourcePartition,
+            sourceOffset,
+            Optional.<String>empty(),
+            Optional.<String>empty(),
+            Optional.<String>empty()
+        );
+    }
+
+    private static byte[] avroPayload(
+        boolean deadLetter,
+        String sourceTopic,
+        int sourcePartition,
+        long sourceOffset,
+        String failureEventId,
+        String reasonMsg,
+        String exception
+    ) throws IOException {
+        Schema schema = new Schema.Parser().parse(deadLetter ? deadLetterSchema() : canarySchema());
+        GenericRecord record = new GenericData.Record(schema);
+        record.put("sourceKey", "key-1");
+        record.put("sourceValue", "value-1");
+        record.put("sourceHeaders", Collections.<String, String>emptyMap());
+        record.put("sourceTopic", sourceTopic);
+        record.put("sourcePartition", sourcePartition);
+        record.put("sourceOffset", sourceOffset);
+        record.put("sourceKafkaTimestamp", 123456789L);
+        if (deadLetter) {
+            record.put("failureEventId", failureEventId);
+            record.put("reasonMsg", reasonMsg);
+            record.put("exception", exception);
+        }
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        GenericDatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
+        DataFileWriter<GenericRecord> writer = new DataFileWriter<GenericRecord>(datumWriter);
+        writer.create(schema, output);
+        writer.append(record);
+        writer.close();
+        return output.toByteArray();
+    }
+
+    private static String canarySchema() {
+        return "{"
+            + "\"type\":\"record\","
+            + "\"name\":\"CanaryRecord\","
+            + "\"fields\":["
+            + "{\"name\":\"sourceKey\",\"type\":[\"null\",\"string\"],\"default\":null},"
+            + "{\"name\":\"sourceValue\",\"type\":[\"null\",\"string\"],\"default\":null},"
+            + "{\"name\":\"sourceHeaders\",\"type\":{\"type\":\"map\",\"values\":\"string\"}},"
+            + "{\"name\":\"sourceTopic\",\"type\":\"string\"},"
+            + "{\"name\":\"sourcePartition\",\"type\":\"int\"},"
+            + "{\"name\":\"sourceOffset\",\"type\":\"long\"},"
+            + "{\"name\":\"sourceKafkaTimestamp\",\"type\":\"long\"}"
+            + "]"
+            + "}";
+    }
+
+    private static String deadLetterSchema() {
+        return "{"
+            + "\"type\":\"record\","
+            + "\"name\":\"DeadLetterRecord\","
+            + "\"fields\":["
+            + "{\"name\":\"sourceKey\",\"type\":[\"null\",\"string\"],\"default\":null},"
+            + "{\"name\":\"sourceValue\",\"type\":[\"null\",\"string\"],\"default\":null},"
+            + "{\"name\":\"sourceHeaders\",\"type\":{\"type\":\"map\",\"values\":\"string\"}},"
+            + "{\"name\":\"sourceTopic\",\"type\":\"string\"},"
+            + "{\"name\":\"sourcePartition\",\"type\":\"int\"},"
+            + "{\"name\":\"sourceOffset\",\"type\":\"long\"},"
+            + "{\"name\":\"sourceKafkaTimestamp\",\"type\":\"long\"},"
+            + "{\"name\":\"failureEventId\",\"type\":[\"null\",\"string\"],\"default\":null},"
+            + "{\"name\":\"reasonMsg\",\"type\":[\"null\",\"string\"],\"default\":null},"
+            + "{\"name\":\"exception\",\"type\":[\"null\",\"string\"],\"default\":null}"
+            + "]"
+            + "}";
     }
 }

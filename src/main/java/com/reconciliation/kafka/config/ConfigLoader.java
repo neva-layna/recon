@@ -42,8 +42,85 @@ public final class ConfigLoader {
             parseBoolean("recon.failOnInvalidRows", true, lookup),
             parseBoolean("recon.failOnGaps", true, lookup),
             parseNonNegativeLong("recon.missingOffsetsLimit", 1000L, lookup),
-            parseBoolean("recon.exitOnCompletion", true, lookup)
+            parseBoolean("recon.exitOnCompletion", true, lookup),
+            loadSideTopicConfig(lookup)
         );
+    }
+
+    public static Optional<SideTopicConfig> loadSideTopicConfig(ConfLookup lookup) {
+        Optional<String> sourceTopic = firstConfOption(lookup, "recon.sourceTopic", "recon.sideTopic.sourceTopic");
+        Optional<String> bootstrapServers = firstConfOption(
+            lookup,
+            "recon.kafkaBootstrapServers",
+            "recon.kafka.bootstrap.servers",
+            "recon.sideTopic.kafkaBootstrapServers"
+        );
+        Optional<String> canaryTopic = firstConfOption(lookup, "recon.canaryTopic", "recon.sideTopic.canaryTopic");
+        Optional<String> deadLetterTopic = firstConfOption(
+            lookup,
+            "recon.deadLetterTopic",
+            "recon.deadletterTopic",
+            "recon.sideTopic.deadLetterTopic"
+        );
+        Optional<String> rawStartingOffsets = firstConfOption(
+            lookup,
+            "recon.sideTopicStartingOffsets",
+            "recon.sideTopic.startingOffsets",
+            "recon.sideTopicReadBehavior"
+        );
+
+        boolean anySideTopicConfig = sourceTopic.isPresent()
+            || bootstrapServers.isPresent()
+            || canaryTopic.isPresent()
+            || deadLetterTopic.isPresent()
+            || rawStartingOffsets.isPresent();
+        if (!anySideTopicConfig) {
+            return Optional.empty();
+        }
+
+        List<String> missing = new ArrayList<String>();
+        if (!sourceTopic.isPresent()) {
+            missing.add("recon.sourceTopic");
+        }
+        if (!bootstrapServers.isPresent()) {
+            missing.add("recon.kafkaBootstrapServers");
+        }
+        if (!canaryTopic.isPresent() && !deadLetterTopic.isPresent()) {
+            missing.add("one of recon.canaryTopic or recon.deadLetterTopic");
+        }
+        if (!missing.isEmpty()) {
+            ReconReporter.stopNow(2, "Incomplete side-topic config; missing " + String.join(", ", missing));
+        }
+
+        String startingOffsets = rawStartingOffsets.orElse("earliest").toLowerCase(Locale.ROOT);
+        if ("beginning".equals(startingOffsets)) {
+            startingOffsets = "earliest";
+        }
+        if (!"earliest".equals(startingOffsets)) {
+            ReconReporter.stopNow(
+                2,
+                "Invalid Spark conf recon.sideTopicStartingOffsets=" + rawStartingOffsets.get()
+                    + "; expected earliest or beginning"
+            );
+        }
+
+        return Optional.of(new SideTopicConfig(
+            sourceTopic.get(),
+            bootstrapServers.get(),
+            canaryTopic,
+            deadLetterTopic,
+            startingOffsets
+        ));
+    }
+
+    public static Optional<String> firstConfOption(ConfLookup lookup, String... keys) {
+        for (String key : keys) {
+            Optional<String> value = confOption(key, lookup);
+            if (value.isPresent()) {
+                return value;
+            }
+        }
+        return Optional.empty();
     }
 
     public static Optional<String> confOption(String key, ConfLookup lookup) {

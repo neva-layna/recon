@@ -21,6 +21,14 @@ public final class ReconReporter {
         System.out.println(ReconConstants.RECON_PREFIX + " recon.failOnGaps=" + config.failOnGaps);
         System.out.println(ReconConstants.RECON_PREFIX + " recon.missingOffsetsLimit=" + config.missingOffsetsLimit);
         System.out.println(ReconConstants.RECON_PREFIX + " recon.exitOnCompletion=" + config.exitOnCompletion);
+        System.out.println(ReconConstants.RECON_PREFIX + " recon.sideTopic.enabled=" + config.sideTopicConfig.isPresent());
+        if (config.sideTopicConfig.isPresent()) {
+            System.out.println(ReconConstants.RECON_PREFIX + " recon.sourceTopic=" + config.sideTopicConfig.get().sourceTopic);
+            System.out.println(ReconConstants.RECON_PREFIX + " recon.kafkaBootstrapServers=" + config.sideTopicConfig.get().kafkaBootstrapServers);
+            System.out.println(ReconConstants.RECON_PREFIX + " recon.canaryTopic=" + config.sideTopicConfig.get().canaryTopic.orElse("<none>"));
+            System.out.println(ReconConstants.RECON_PREFIX + " recon.deadLetterTopic=" + config.sideTopicConfig.get().deadLetterTopic.orElse("<none>"));
+            System.out.println(ReconConstants.RECON_PREFIX + " recon.sideTopicStartingOffsets=" + config.sideTopicConfig.get().startingOffsets);
+        }
         System.out.println(ReconConstants.RECON_PREFIX + " resolved_configuration_end");
     }
 

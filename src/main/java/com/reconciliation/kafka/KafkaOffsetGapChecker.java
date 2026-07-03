@@ -16,9 +16,11 @@ import com.reconciliation.kafka.config.ConfigLoader;
 import com.reconciliation.kafka.config.SparkConfLookup;
 import com.reconciliation.kafka.metadata.MetadataNormalizer;
 import com.reconciliation.kafka.model.EligiblePartition;
+import com.reconciliation.kafka.model.GapAnalysisResult;
 import com.reconciliation.kafka.model.NormalizeResult;
 import com.reconciliation.kafka.model.RootScan;
 import com.reconciliation.kafka.scan.PartitionScanner;
+import com.reconciliation.kafka.sidetopic.SideTopicReconciler;
 import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconExit;
 import com.reconciliation.kafka.support.ReconReporter;
@@ -87,14 +89,15 @@ public final class KafkaOffsetGapChecker {
         System.out.println(ReconConstants.RECON_PREFIX + " valid_offset_row_count=" + normalizeResult.validRows);
 
         Dataset<Row> analyticsInput = MetadataNormalizer.persistIfConfigured(spark, normalizeResult.normalizedOffsets, config);
-        long gapCount = OffsetAnalytics.printGapStats(analyticsInput, config);
+        GapAnalysisResult gapResult = OffsetAnalytics.printGapStats(analyticsInput, config);
+        SideTopicReconciler.reconcileIfConfigured(spark, config, gapResult);
 
         List<String> failureReasons = new ArrayList<String>();
         if (normalizeResult.invalidRows > 0L && config.failOnInvalidRows) {
             failureReasons.add("invalid metadata rows detected: invalid_row_count=" + normalizeResult.invalidRows);
         }
-        if (gapCount > 0L && config.failOnGaps) {
-            failureReasons.add("offset gaps detected: gap_partition_count=" + gapCount);
+        if (gapResult.gapPartitionCount > 0L && config.failOnGaps) {
+            failureReasons.add("offset gaps detected: gap_partition_count=" + gapResult.gapPartitionCount);
         }
 
         ReconReporter.finish(config, failureReasons.isEmpty() ? 0 : 1, failureReasons);

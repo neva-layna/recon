@@ -16,6 +16,7 @@ application {
 }
 
 dependencies {
+    implementation 'org.apache.avro:avro:1.11.4'
     compileOnly 'org.apache.spark:spark-sql_2.12:3.5.6'
     testImplementation 'org.apache.spark:spark-sql_2.12:3.5.6'
     testImplementation 'junit:junit:4.13.2'

@@ -21,6 +21,8 @@ The workspace also contains a Gradle Java port for `spark-submit` deployments:
 `src/main/java/com/reconciliation/kafka/KafkaOffsetGapChecker.java`. The Java
 app is compiled for Java 8 bytecode and must run with Spark 3.5.x artifacts
 built for Scala 2.12, such as `org.apache.spark:spark-sql_2.12:3.5.6`.
+The optional canary/dead-letter side-topic feature is Java `spark-submit` only
+and requires Kafka 3.x brokers or fixtures.
 
 The checker scans only the immediate children of each configured root. It uses
 eligible old date partitions from all roots together before computing gaps, so a
@@ -29,9 +31,9 @@ skipped because the current-day write may still be incomplete.
 
 ## Configuration
 
-Pass checker configuration through Spark conf keys. The script accepts canonical
-`recon.*` keys and `spark.recon.*` aliases for launchers that only preserve
-`spark.*` keys.
+Pass checker configuration through Spark conf keys. The Scala checker and Java
+app accept canonical `recon.*` keys and `spark.recon.*` aliases for launchers
+that only preserve `spark.*` keys.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -46,6 +48,22 @@ Pass checker configuration through Spark conf keys. The script accepts canonical
 | `recon.missingOffsetsLimit` | `1000` | Per-partition safety limit for materializing actual missing offset values in output. Set `0` to report only counts and mark gapped partitions as truncated. |
 | `recon.exitOnCompletion` | `true` | Call `System.exit` so automation does not remain in the interactive shell. |
 
+Java side-topic reconciliation adds these configs. Each `recon.*` spelling also
+has the corresponding `spark.recon.*` alias.
+
+| Key | Alias keys | Default | Meaning |
+| --- | --- | --- | --- |
+| `recon.sourceTopic` | `recon.sideTopic.sourceTopic` | required when side-topic config is present | Source Kafka topic identity used to match side-topic records. |
+| `recon.kafkaBootstrapServers` | `recon.kafka.bootstrap.servers`, `recon.sideTopic.kafkaBootstrapServers` | required when side-topic config is present | Kafka 3.x bootstrap servers for side-topic reads. |
+| `recon.canaryTopic` | `recon.sideTopic.canaryTopic` | none | Optional canary/heartbeat topic containing Avro object-container payloads. |
+| `recon.deadLetterTopic` | `recon.deadletterTopic`, `recon.sideTopic.deadLetterTopic` | none | Optional dead-letter topic containing Avro object-container payloads. |
+| `recon.sideTopicStartingOffsets` | `recon.sideTopic.startingOffsets`, `recon.sideTopicReadBehavior` | `earliest` | Side-topic read start. `earliest` and `beginning` are accepted and both read from the beginning. |
+
+When any side-topic config is present, `recon.sourceTopic`,
+`recon.kafkaBootstrapServers`, and at least one of `recon.canaryTopic` or
+`recon.deadLetterTopic` are required. Partial side-topic config fails closed with
+exit code `2`.
+
 The fixture generator uses these Spark conf keys:
 
 | Key | Default | Meaning |
@@ -58,7 +76,8 @@ The fixture generator uses these Spark conf keys:
 
 ## Production Example
 
-Use Spark 3.5.x and pass all behavior through Spark conf:
+For the Scala parquet-gap checker, use Spark 3.5.x and pass behavior through
+Spark conf:
 
 ```bash
 spark-shell \
@@ -181,6 +200,64 @@ Java wrapper variables:
 | `FAIL_ON_INVALID_ROWS` | `true` | Exit non-zero when eligible metadata rows are invalid. |
 | `FAIL_ON_GAPS` | `true` | Exit non-zero when gaps are detected. |
 | `EXIT_ON_COMPLETION` | `true` | Whether the checker exits the JVM with the final checker code. |
+| `SOURCE_TOPIC` | none | Source Kafka topic identity used to match side-topic records. |
+| `KAFKA_BOOTSTRAP_SERVERS` | none | Kafka 3.x bootstrap servers for configured side-topic reads. |
+| `CANARY_TOPIC` | none | Optional canary/heartbeat side topic. |
+| `DEAD_LETTER_TOPIC` | none | Optional dead-letter side topic. |
+| `SIDE_TOPIC_STARTING_OFFSETS` | `earliest` | Side-topic read start; accepts `earliest` or `beginning`. |
+| `SPARK_PACKAGES` | side-topic default only | Optional override for `spark-submit --packages`. |
+| `SPARK_JARS_IVY` | none | Optional writable Ivy cache forwarded as `spark.jars.ivy`. |
+
+### Java Side-Topic Reconciliation
+
+Canary/heartbeat messages and broken source messages can be redirected away from
+HDFS parquet into Kafka side topics. For those pipelines, a missing parquet
+offset should be checked against canary and dead-letter topics before it is
+treated as unresolved data loss.
+
+Use the Java production wrapper for side-topic reconciliation:
+
+```bash
+SOURCE_TOPIC=orders \
+KAFKA_BOOTSTRAP_SERVERS='broker-a:9092,broker-b:9092' \
+CANARY_TOPIC=orders-canary \
+DEAD_LETTER_TOPIC=orders-dlq \
+SIDE_TOPIC_STARTING_OFFSETS=earliest \
+RUN_DATE=2026-07-02 \
+scripts/run_java_kafka_offset_gap_check_prod.sh \
+  hdfs:///data/orders/root-a \
+  hdfs:///data/orders/root-b
+```
+
+The wrapper submits the Java class with `spark-submit`, forwards values as
+`spark.recon.*`, and adds these Spark 3.5 runtime packages unless
+`SPARK_PACKAGES` is set:
+
+```text
+org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4
+```
+
+Direct Java `spark-submit` uses the same configs:
+
+```bash
+spark-submit \
+  --class com.reconciliation.kafka.KafkaOffsetGapChecker \
+  --master yarn \
+  --packages 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4' \
+  --conf 'spark.sql.session.timeZone=UTC' \
+  --conf 'spark.recon.inputRoots=hdfs:///data/orders/root-a,hdfs:///data/orders/root-b' \
+  --conf 'spark.recon.runDate=2026-07-02' \
+  --conf 'spark.recon.sourceTopic=orders' \
+  --conf 'spark.recon.kafkaBootstrapServers=broker-a:9092,broker-b:9092' \
+  --conf 'spark.recon.canaryTopic=orders-canary' \
+  --conf 'spark.recon.deadLetterTopic=orders-dlq' \
+  --conf 'spark.recon.sideTopicStartingOffsets=earliest' \
+  build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+```
+
+The Scala `spark-shell -i` checker does not read Kafka side topics. Use
+`spark-shell` only for the provided fixture generators when testing this
+feature.
 
 Production notes:
 
@@ -192,6 +269,11 @@ Production notes:
   `<DATE_PARTITION_COLUMN>=yyyy-MM-dd` below each root.
 - All roots are unioned before gap analytics; do not run each root separately if
   one Kafka topic can be split across roots.
+- Side-topic matching compares Avro fields `sourceTopic`, `sourcePartition`,
+  and `sourceOffset` against materialized missing parquet offsets.
+- `MISSING_OFFSETS_LIMIT` bounds the missing offsets available for side-topic
+  classification. When it truncates the gap list, side-topic output reports
+  `missing_offsets_truncated=true`.
 
 ### Hadoop Sample Data
 
@@ -286,10 +368,12 @@ will skip the generated partitions as current-day data.
 | `scripts/run_kafka_offset_gap_check_prod.sh` | Production wrapper for checking real HDFS/parquet roots. |
 | `src/main/java/com/reconciliation/kafka/KafkaOffsetGapChecker.java` | Java Spark SQL/DataFrame port for `spark-submit`. |
 | `scripts/run_java_kafka_offset_gap_check_prod.sh` | Production wrapper for the Java `spark-submit` checker. |
+| `scripts/run_java_kafka_side_topic_fixture_checks.sh` | Local Kafka 3.x side-topic validation runner for the Java checker. |
 | `scripts/generate_kafka_offset_gap_sample_data.scala` | Small Spark generator for the two Hadoop sample scenarios. |
 | `scripts/generate_hadoop_offset_gap_sample_data.sh` | Wrapper around the small sample generator. |
 | `scripts/run_hadoop_offset_gap_sample_checks.sh` | Wrapper that verifies the two generated sample scenarios. |
 | `tests/fixtures/generate_kafka_offset_gap_fixtures.scala` | Full validation fixture generator used by the local test runner. |
+| `tests/fixtures/generate_kafka_side_topic_records.scala` | Spark fixture producer for side-topic Avro object-container records. |
 | `scripts/run_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner covering all edge cases. |
 | `scripts/run_java_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner for the Java `spark-submit` port. |
 
@@ -334,7 +418,24 @@ checker scenario is then run through `spark-submit --class
 com.reconciliation.kafka.KafkaOffsetGapChecker` and the built Java jar, not
 through `spark-shell -i scripts/check_kafka_offset_gaps.scala`.
 
-To run the Java helper with already available Spark 3.5.x binaries:
+Run the full Java side-topic matrix with Spark 3.5.x and Kafka 3.x in Docker:
+
+```bash
+GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+
+scripts/run_java_kafka_side_topic_docker_checks.sh
+```
+
+The Docker wrapper starts `apache/kafka:3.7.0`, creates the `orders-canary`,
+`orders-dlq`, `orders-dlq-only`, and `orders-bad-canary` topics, then runs the
+side-topic matrix in `apache/spark:3.5.6`. The Spark-side runner uses
+`tests/fixtures/generate_kafka_side_topic_records.scala` only to create Avro
+object-container side-topic messages and runs all checker scenarios through
+Java `spark-submit`. Evidence is written under `.recon-local-side/evidence/run/`,
+including `kafka/side_topic_records.tsv`.
+
+To run the Java helper with already available Spark 3.5.x binaries and only
+Kafka in Docker:
 
 ```bash
 SPARK_SHELL_BIN=spark-shell \
@@ -446,6 +547,14 @@ Duplicate rows are de-duplicated for gap analytics and reported through
 `duplicate_offset_row_count`, so repeated offset rows do not create false
 missing offset values.
 
+Side-topic output appears only for Java runs with side-topic config enabled. It
+includes `side_topic_reconciliation_begin/end`, one `side_topic_read` line per
+configured side topic, `side_topic_bucket=canary_explained`,
+`side_topic_bucket=dead_letter_explained`, `side_topic_bucket=unresolved`,
+`side_topic_dead_letter_fields`, and `side_topic_summary`. Explained buckets
+show missing parquet offsets found in the configured side topics; unresolved
+buckets show materialized missing parquet offsets not found there.
+
 For a gapped partition, `missing_offsets` contains the actual missing offset
 values in ascending order, for example `missing_offsets=[1,4]`. The list is
 attributable to the same line's `partition` or `gap_partition` value. If the
@@ -461,3 +570,6 @@ Exit code `2` means configuration or input data prevented a meaningful check,
 including missing input roots, invalid boolean or run-date configuration,
 unreadable parquet, no eligible old partitions, empty readable parquet, missing
 metadata column, failed cache read/write, or zero valid normalized offsets.
+With side-topic config enabled, exit code `2` also covers incomplete side-topic
+config, unreachable/unreadable Kafka side topics, missing Kafka datasource
+packages, missing Avro runtime, and undecodable Avro payloads.
