@@ -138,6 +138,12 @@ writeValues(
 )
 
 writeValues(
+  "gap_two/root_a",
+  oldDate,
+  Seq(Some(metadata("0", "0")), Some(metadata("0", "3")), Some(metadata("1", "5")))
+)
+
+writeValues(
   "duplicate/root_a",
   oldDate,
   Seq(Some(metadata("0", "0")), Some(metadata("0", "1")), Some(metadata("0", "1")), Some(metadata("0", "2")))
@@ -215,6 +221,7 @@ println(s"$FixturePrefix pass_roots=${fixturePath("pass/root_a")},${fixturePath(
 println(s"$FixturePrefix split_roots=${fixturePath("split/root_a")},${fixturePath("split/root_b")}")
 println(s"$FixturePrefix gap_root=${fixturePath("gap/root_a")}")
 println(s"$FixturePrefix gap_over_limit_root=${fixturePath("gap_over_limit/root_a")}")
+println(s"$FixturePrefix gap_two_root=${fixturePath("gap_two/root_a")}")
 println(s"$FixturePrefix duplicate_root=${fixturePath("duplicate/root_a")}")
 println(s"$FixturePrefix today_skipped_root=${fixturePath("today_skipped/root_a")}")
 println(s"$FixturePrefix scan_noise_root=${fixturePath("scan_noise/root_a")}")

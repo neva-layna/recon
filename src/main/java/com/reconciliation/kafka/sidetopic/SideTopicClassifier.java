@@ -63,6 +63,8 @@ public final class SideTopicClassifier {
             canaryMatched.size(),
             deadLetterMatched.size(),
             unresolved.size(),
+            gaps.gapPartitionCount,
+            missing.size(),
             canaryRecords.size(),
             deadLetterRecords.size(),
             countDeadLetterField(deadLetterRecords, deadLetterMatched, DeadLetterField.FAILURE_EVENT_ID),

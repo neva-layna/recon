@@ -33,16 +33,16 @@ bytecode. Product deliverables live at workspace-root paths such as
 ## Quick Build
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 ```
 
 ## Quick Local Validation
 
 ```bash
-mkdir -p .recon-local
-chmod 0777 .recon-local
+rtk mkdir -p .recon-local
+rtk chmod 0777 .recon-local
 
-docker run --rm \
+rtk docker run --rm \
   --entrypoint /bin/bash \
   -e SPARK_SHELL_BIN=/opt/spark/bin/spark-shell \
   -e SPARK_SUBMIT_BIN=/opt/spark/bin/spark-submit \
@@ -63,9 +63,9 @@ Build the jar, then run the full side-topic matrix with Spark 3.5.x and Kafka
 3.x in Docker:
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 
-scripts/run_java_kafka_side_topic_docker_checks.sh
+rtk scripts/run_java_kafka_side_topic_docker_checks.sh
 ```
 
 The wrapper starts `apache/kafka:3.7.0`, creates the canary/dead-letter test
@@ -76,8 +76,9 @@ topics, writes Avro side-topic records, and runs the Java checker through
 ## Quick Production-Style Run
 
 ```bash
-RUN_DATE=2026-07-02 \
-scripts/run_java_kafka_offset_gap_check_prod.sh \
+rtk env \
+  RUN_DATE=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2
 ```
@@ -87,18 +88,22 @@ scripts/run_java_kafka_offset_gap_check_prod.sh \
 Use the Java production wrapper with Kafka 3.x bootstrap servers:
 
 ```bash
-SOURCE_TOPIC=orders \
-KAFKA_BOOTSTRAP_SERVERS='broker-a:9092,broker-b:9092' \
-CANARY_TOPIC=orders-canary \
-DEAD_LETTER_TOPIC=orders-dlq \
-SIDE_TOPIC_STARTING_OFFSETS=earliest \
-RUN_DATE=2026-07-02 \
-scripts/run_java_kafka_offset_gap_check_prod.sh \
+rtk env \
+  SOURCE_TOPIC=orders \
+  KAFKA_BOOTSTRAP_SERVERS='broker-a:9092,broker-b:9092' \
+  CANARY_TOPIC=orders-canary \
+  DEAD_LETTER_TOPIC=orders-dlq \
+  SIDE_TOPIC_STARTING_OFFSETS=earliest \
+  RUN_DATE=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/orders/root-a \
   hdfs:///data/orders/root-b
 ```
 
 The wrapper submits `build/libs/recon-kafka-offset-gap-checker-1.0.0.jar` with
-`spark-submit`, forwards side-topic values as `spark.recon.*` configs, and
-fails closed with exit code `2` for incomplete side-topic config, unreadable
-Kafka side topics, or undecodable Avro payloads.
+`spark-submit` and forwards side-topic values as `spark.recon.*` configs. With
+`FAIL_ON_GAPS=true`, non-truncated missing offsets fully explained by canary
+and/or dead-letter records exit `0`; unresolved offsets or truncated
+missing-offset materialization exit `1`. Incomplete side-topic config,
+unreadable Kafka side topics, and undecodable Avro payloads fail closed with
+exit code `2`.

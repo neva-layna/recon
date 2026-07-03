@@ -216,8 +216,10 @@ public class KafkaOffsetGapCheckerTest {
 
         List<SideTopicRecord> canary = new ArrayList<SideTopicRecord>();
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 0, 1L));
+        canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 0, 1L));
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "other-topic", 0, 2L));
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 9, 7L));
+        canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 0, 99L));
         List<SideTopicRecord> deadLetter = new ArrayList<SideTopicRecord>();
         deadLetter.add(new SideTopicRecord(
             SideTopicKind.DEAD_LETTER,
@@ -239,7 +241,57 @@ public class KafkaOffsetGapCheckerTest {
         assertEquals(1L, classification.canaryExplainedCount);
         assertEquals(1L, classification.deadLetterExplainedCount);
         assertEquals(2L, classification.unresolvedCount);
+        assertEquals(2L, classification.rawGapPartitionCount);
+        assertEquals(4L, classification.boundedMissingOffsetCount);
+        assertEquals(5L, classification.canaryRecordCount);
         assertEquals(1L, classification.deadLetterFailureEventIdCount);
+    }
+
+    @Test
+    public void gapExitDecisionUsesUnresolvedSideTopicOffsets() {
+        Map<Integer, MissingOffsetReport> missing = new LinkedHashMap<Integer, MissingOffsetReport>();
+        missing.put(0, new MissingOffsetReport(Arrays.asList(1L, 2L), false));
+        GapAnalysisResult gaps = new GapAnalysisResult(1L, missing);
+
+        Optional<String> rawGapFailure = KafkaOffsetGapChecker.gapFailureReason(
+            checkerConfig(true),
+            gaps,
+            Optional.<SideTopicClassification>empty()
+        );
+        assertTrue(rawGapFailure.isPresent());
+        assertTrue(rawGapFailure.get().contains("gap_partition_count=1"));
+
+        Optional<String> resolvedSideTopicFailure = KafkaOffsetGapChecker.gapFailureReason(
+            checkerConfig(true),
+            gaps,
+            Optional.of(classification(1L, 1L, 0L))
+        );
+        assertFalse(resolvedSideTopicFailure.isPresent());
+
+        Optional<String> truncatedSideTopicFailure = KafkaOffsetGapChecker.gapFailureReason(
+            checkerConfig(true),
+            gaps,
+            Optional.of(classification(1L, 1L, 0L, true))
+        );
+        assertTrue(truncatedSideTopicFailure.isPresent());
+        assertTrue(truncatedSideTopicFailure.get().contains("unresolved offsets may remain beyond materialized limit"));
+        assertTrue(truncatedSideTopicFailure.get().contains("missing_offsets_truncated=true"));
+        assertTrue(truncatedSideTopicFailure.get().contains("unresolved_count=0"));
+
+        Optional<String> unresolvedSideTopicFailure = KafkaOffsetGapChecker.gapFailureReason(
+            checkerConfig(true),
+            gaps,
+            Optional.of(classification(1L, 0L, 1L))
+        );
+        assertTrue(unresolvedSideTopicFailure.isPresent());
+        assertTrue(unresolvedSideTopicFailure.get().contains("unresolved_count=1"));
+
+        Optional<String> disabledGapFailure = KafkaOffsetGapChecker.gapFailureReason(
+            checkerConfig(false),
+            gaps,
+            Optional.of(classification(0L, 0L, 2L))
+        );
+        assertFalse(disabledGapFailure.isPresent());
     }
 
     @Test
@@ -289,6 +341,58 @@ public class KafkaOffsetGapCheckerTest {
             Optional.<String>empty(),
             Optional.<String>empty(),
             Optional.<String>empty()
+        );
+    }
+
+    private static CheckerConfig checkerConfig(boolean failOnGaps) {
+        return new CheckerConfig(
+            Arrays.asList("/data/root-a"),
+            "cactus__metadata",
+            "timestampcolumn",
+            LocalDate.parse("2026-07-02"),
+            "test",
+            Optional.<String>empty(),
+            true,
+            true,
+            failOnGaps,
+            1000L,
+            true,
+            Optional.empty()
+        );
+    }
+
+    private static SideTopicClassification classification(
+        long canaryExplainedCount,
+        long deadLetterExplainedCount,
+        long unresolvedCount
+    ) {
+        return classification(canaryExplainedCount, deadLetterExplainedCount, unresolvedCount, false);
+    }
+
+    private static SideTopicClassification classification(
+        long canaryExplainedCount,
+        long deadLetterExplainedCount,
+        long unresolvedCount,
+        boolean missingOffsetsTruncated
+    ) {
+        return new SideTopicClassification(
+            "orders",
+            Collections.<Integer, List<Long>>emptyMap(),
+            Collections.<Integer, List<Long>>emptyMap(),
+            unresolvedCount > 0L
+                ? Collections.singletonMap(Integer.valueOf(0), Arrays.asList(2L))
+                : Collections.<Integer, List<Long>>emptyMap(),
+            canaryExplainedCount,
+            deadLetterExplainedCount,
+            unresolvedCount,
+            1L,
+            canaryExplainedCount + deadLetterExplainedCount + unresolvedCount,
+            canaryExplainedCount,
+            deadLetterExplainedCount,
+            0L,
+            0L,
+            0L,
+            missingOffsetsTruncated
         );
     }
 

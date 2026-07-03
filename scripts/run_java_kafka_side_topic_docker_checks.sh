@@ -19,10 +19,13 @@ SOURCE_TOPIC="${SOURCE_TOPIC:-orders}"
 CANARY_TOPIC="${CANARY_TOPIC:-orders-canary}"
 DEAD_LETTER_TOPIC="${DEAD_LETTER_TOPIC:-orders-dlq}"
 DEAD_LETTER_ONLY_TOPIC="${DEAD_LETTER_ONLY_TOPIC:-orders-dlq-only}"
+EMPTY_CANARY_TOPIC="${EMPTY_CANARY_TOPIC:-orders-empty-canary}"
+EMPTY_DEAD_LETTER_TOPIC="${EMPTY_DEAD_LETTER_TOPIC:-orders-empty-dlq}"
 BAD_CANARY_TOPIC="${BAD_CANARY_TOPIC:-orders-bad-canary}"
 RUN_DATE="${RUN_DATE:-2026-07-02}"
 HOST_FIXTURE_ROOT="${HOST_FIXTURE_ROOT:-$PWD/.recon-local-side/fixtures}"
 HOST_EVIDENCE_ROOT="${HOST_EVIDENCE_ROOT:-$PWD/.recon-local-side/evidence}"
+HOST_RUN_EVIDENCE_ROOT="${HOST_RUN_EVIDENCE_ROOT:-$HOST_EVIDENCE_ROOT/run}"
 CONTAINER_FIXTURE_ROOT="${CONTAINER_FIXTURE_ROOT:-/fixtures/run}"
 CONTAINER_EVIDENCE_ROOT="${CONTAINER_EVIDENCE_ROOT:-/evidence/run}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -65,6 +68,25 @@ create_topic() {
     --topic "$topic" \
     --partitions 1 \
     --replication-factor 1
+}
+
+capture_kafka_version() {
+  local version_dir="$HOST_RUN_EVIDENCE_ROOT/kafka_version"
+  mkdir -p "$version_dir"
+  printf '%q ' "$DOCKER_BIN" exec "$KAFKA_CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh --version > "$version_dir/command.txt"
+  printf '\n' >> "$version_dir/command.txt"
+  "$DOCKER_BIN" exec "$KAFKA_CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh --version \
+    > "$version_dir/stdout.log" \
+    2> "$version_dir/stderr.log"
+  local version_code=$?
+  printf '%s\n' "$version_code" > "$version_dir/exit_code.txt"
+  if [[ "$version_code" -eq 0 ]] && grep -Eiq '(^|[^0-9])3\.[0-9]' "$version_dir/stdout.log" "$version_dir/stderr.log"; then
+    printf 'pass\n' > "$version_dir/verdict.txt"
+    return 0
+  fi
+  printf 'fail\n' > "$version_dir/verdict.txt"
+  echo "[recon-side-docker] ERROR: Kafka version did not report 3.x evidence=$version_dir" >&2
+  return 1
 }
 
 case "$SPARK_IMAGE" in
@@ -125,6 +147,8 @@ echo "[recon-side-docker] creating Kafka topics"
 create_topic "$CANARY_TOPIC" >/dev/null
 create_topic "$DEAD_LETTER_TOPIC" >/dev/null
 create_topic "$DEAD_LETTER_ONLY_TOPIC" >/dev/null
+create_topic "$EMPTY_CANARY_TOPIC" >/dev/null
+create_topic "$EMPTY_DEAD_LETTER_TOPIC" >/dev/null
 create_topic "$BAD_CANARY_TOPIC" >/dev/null
 
 echo "[recon-side-docker] running Spark image=$SPARK_IMAGE"
@@ -143,6 +167,8 @@ echo "[recon-side-docker] running Spark image=$SPARK_IMAGE"
   -e CANARY_TOPIC="$CANARY_TOPIC" \
   -e DEAD_LETTER_TOPIC="$DEAD_LETTER_TOPIC" \
   -e DEAD_LETTER_ONLY_TOPIC="$DEAD_LETTER_ONLY_TOPIC" \
+  -e EMPTY_CANARY_TOPIC="$EMPTY_CANARY_TOPIC" \
+  -e EMPTY_DEAD_LETTER_TOPIC="$EMPTY_DEAD_LETTER_TOPIC" \
   -e BAD_CANARY_TOPIC="$BAD_CANARY_TOPIC" \
   -e SPARK_JARS_IVY=/tmp/recon-ivy \
   -v "$WORKSPACE_ROOT":/workspace:ro \
@@ -152,4 +178,8 @@ echo "[recon-side-docker] running Spark image=$SPARK_IMAGE"
   "$SPARK_IMAGE" \
   -lc 'scripts/run_java_kafka_side_topic_fixture_checks.sh'
 
-echo "[recon-side-docker] evidence_root=$HOST_EVIDENCE_ROOT/run"
+mkdir -p "$HOST_RUN_EVIDENCE_ROOT/kafka"
+printf '%s\n' "$KAFKA_IMAGE" > "$HOST_RUN_EVIDENCE_ROOT/kafka/kafka_image.txt"
+capture_kafka_version
+
+echo "[recon-side-docker] evidence_root=$HOST_RUN_EVIDENCE_ROOT"

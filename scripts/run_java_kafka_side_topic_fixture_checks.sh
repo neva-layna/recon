@@ -36,6 +36,8 @@ SOURCE_TOPIC="${SOURCE_TOPIC:-orders}"
 CANARY_TOPIC="${CANARY_TOPIC:-orders-canary}"
 DEAD_LETTER_TOPIC="${DEAD_LETTER_TOPIC:-orders-dlq}"
 DEAD_LETTER_ONLY_TOPIC="${DEAD_LETTER_ONLY_TOPIC:-orders-dlq-only}"
+EMPTY_CANARY_TOPIC="${EMPTY_CANARY_TOPIC:-orders-empty-canary}"
+EMPTY_DEAD_LETTER_TOPIC="${EMPTY_DEAD_LETTER_TOPIC:-orders-empty-dlq}"
 BAD_CANARY_TOPIC="${BAD_CANARY_TOPIC:-orders-bad-canary}"
 
 print_command() {
@@ -178,7 +180,7 @@ create_kafka_topics() {
   fi
 
   local topic
-  for topic in "$CANARY_TOPIC" "$DEAD_LETTER_TOPIC" "$DEAD_LETTER_ONLY_TOPIC" "$BAD_CANARY_TOPIC"; do
+  for topic in "$CANARY_TOPIC" "$DEAD_LETTER_TOPIC" "$DEAD_LETTER_ONLY_TOPIC" "$EMPTY_CANARY_TOPIC" "$EMPTY_DEAD_LETTER_TOPIC" "$BAD_CANARY_TOPIC"; do
     print_command "$KAFKA_EVIDENCE_ROOT/create_topic_${topic}.command.txt" \
       "$DOCKER_BIN" exec "$KAFKA_CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
       --bootstrap-server localhost:9092 --create --if-not-exists \
@@ -344,7 +346,7 @@ run_wrapper_expected() {
     printf 'CHECKER_JAR=%q\n' "$CHECKER_JAR"
     printf 'INPUT_ROOTS_CSV=%q\n' "$roots"
     printf 'RUN_DATE=%q\n' "$RUN_DATE"
-    printf 'FAIL_ON_GAPS=false\n'
+    printf 'FAIL_ON_GAPS=true\n'
     printf 'SOURCE_TOPIC=%q\n' "$SOURCE_TOPIC"
     printf 'KAFKA_BOOTSTRAP_SERVERS=%q\n' "$KAFKA_BOOTSTRAP_SERVERS"
     printf 'CANARY_TOPIC=%q\n' "$CANARY_TOPIC"
@@ -359,7 +361,7 @@ run_wrapper_expected() {
     printf '  CHECKER_JAR=%q \\\n' "$CHECKER_JAR"
     printf '  INPUT_ROOTS_CSV=%q \\\n' "$roots"
     printf '  RUN_DATE=%q \\\n' "$RUN_DATE"
-    printf '  FAIL_ON_GAPS=false \\\n'
+    printf '  FAIL_ON_GAPS=true \\\n'
     printf '  SOURCE_TOPIC=%q \\\n' "$SOURCE_TOPIC"
     printf '  KAFKA_BOOTSTRAP_SERVERS=%q \\\n' "$KAFKA_BOOTSTRAP_SERVERS"
     printf '  CANARY_TOPIC=%q \\\n' "$CANARY_TOPIC"
@@ -375,7 +377,7 @@ run_wrapper_expected() {
   CHECKER_JAR="$CHECKER_JAR" \
   INPUT_ROOTS_CSV="$roots" \
   RUN_DATE="$RUN_DATE" \
-  FAIL_ON_GAPS=false \
+  FAIL_ON_GAPS=true \
   SOURCE_TOPIC="$SOURCE_TOPIC" \
   KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
   CANARY_TOPIC="$CANARY_TOPIC" \
@@ -563,62 +565,130 @@ echo "[recon-side-test] side-topic fixture generation verdict=pass evidence=$sid
 failures=0
 gap_root="$FIXTURE_ROOT/gap/root_a"
 gap_over_limit_root="$FIXTURE_ROOT/gap_over_limit/root_a"
+gap_two_root="$FIXTURE_ROOT/gap_two/root_a"
 
-if run_expected "canary_only" 0 "$gap_root" with_packages \
-  --conf "spark.recon.failOnGaps=false" \
+if run_expected "canary_empty_dead_letter_resolved" 0 "$gap_root" with_packages \
   --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
   --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
-  --conf "spark.recon.canaryTopic=$CANARY_TOPIC"; then
-  assert_stdout_regex "canary_only" 'recon.sideTopic.enabled=true' "side_topic_enabled" || failures=$((failures + 1))
-  assert_stdout_regex "canary_only" 'side_topic_bucket=canary_explained .*partition=0 .*offset_count=1 .*offsets=\[1\]' "canary_offset_1" || failures=$((failures + 1))
-  assert_stdout_regex "canary_only" 'side_topic_summary .*canary_explained_count=1 .*dead_letter_explained_count=0 .*unresolved_count=0' "canary_summary" || failures=$((failures + 1))
+  --conf "spark.recon.canaryTopic=$CANARY_TOPIC" \
+  --conf "spark.recon.deadLetterTopic=$EMPTY_DEAD_LETTER_TOPIC"; then
+  assert_stdout_regex "canary_empty_dead_letter_resolved" 'recon.failOnGaps=true' "fail_on_gaps_true" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_resolved" 'recon.sideTopic.enabled=true' "side_topic_enabled" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_resolved" 'side_topic_read topic=orders-empty-dlq kind=dead_letter decoded_record_count=0' "empty_dead_letter_read" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_resolved" 'side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=\[1\]' "canary_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_resolved" 'side_topic_summary .*raw_gap_partition_count=1 .*bounded_missing_offset_count=1 .*canary_explained_count=1 .*dead_letter_explained_count=0 .*unresolved_count=0 .*canary_record_count=5 .*dead_letter_record_count=0' "canary_empty_dead_letter_summary" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_resolved" 'final_exit_decision code=0 .*side_topic_enabled=true .*unresolved_count=0' "final_exit_0" || failures=$((failures + 1))
 else
   failures=$((failures + 1))
 fi
 
-if run_expected "dead_letter_only" 0 "$gap_root" with_packages \
-  --conf "spark.recon.failOnGaps=false" \
+if run_expected "canary_empty_dead_letter_unresolved" 1 "$gap_two_root" with_packages \
   --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
   --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
+  --conf "spark.recon.canaryTopic=$CANARY_TOPIC" \
+  --conf "spark.recon.deadLetterTopic=$EMPTY_DEAD_LETTER_TOPIC"; then
+  assert_stdout_regex "canary_empty_dead_letter_unresolved" 'recon.failOnGaps=true' "fail_on_gaps_true" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_unresolved" 'side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=\[1\]' "canary_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_unresolved" 'side_topic_bucket=unresolved source_topic=orders side_topic=<none> partition=0 offset_count=1 offsets=\[2\]' "unresolved_offset_2" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_unresolved" 'side_topic_summary .*raw_gap_partition_count=1 .*bounded_missing_offset_count=2 .*canary_explained_count=1 .*dead_letter_explained_count=0 .*unresolved_count=1 .*canary_record_count=5 .*dead_letter_record_count=0' "canary_empty_dead_letter_summary" || failures=$((failures + 1))
+  assert_stdout_regex "canary_empty_dead_letter_unresolved" 'final_exit_decision code=1 .*unresolved_count=1' "final_exit_1" || failures=$((failures + 1))
+else
+  failures=$((failures + 1))
+fi
+
+if run_expected "empty_canary_dead_letter_resolved" 0 "$gap_root" with_packages \
+  --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
+  --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
+  --conf "spark.recon.canaryTopic=$EMPTY_CANARY_TOPIC" \
   --conf "spark.recon.deadLetterTopic=$DEAD_LETTER_ONLY_TOPIC"; then
-  assert_stdout_regex "dead_letter_only" 'side_topic_bucket=dead_letter_explained .*partition=0 .*offset_count=1 .*offsets=\[1\]' "dead_letter_offset_1" || failures=$((failures + 1))
-  assert_stdout_regex "dead_letter_only" 'side_topic_dead_letter_fields failure_event_id_count=1 reason_msg_count=1 exception_count=1' "dead_letter_fields" || failures=$((failures + 1))
-  assert_stdout_regex "dead_letter_only" 'side_topic_summary .*canary_explained_count=0 .*dead_letter_explained_count=1 .*unresolved_count=0' "dead_letter_summary" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_resolved" 'recon.failOnGaps=true' "fail_on_gaps_true" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_resolved" 'side_topic_read topic=orders-empty-canary kind=canary decoded_record_count=0' "empty_canary_read" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_resolved" 'side_topic_bucket=dead_letter_explained source_topic=orders side_topic=orders-dlq-only partition=0 offset_count=1 offsets=\[1\]' "dead_letter_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_resolved" 'side_topic_dead_letter_fields failure_event_id_count=1 reason_msg_count=1 exception_count=1' "dead_letter_fields" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_resolved" 'side_topic_summary .*raw_gap_partition_count=1 .*bounded_missing_offset_count=1 .*canary_explained_count=0 .*dead_letter_explained_count=1 .*unresolved_count=0 .*canary_record_count=0 .*dead_letter_record_count=1' "empty_canary_dead_letter_summary" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_resolved" 'final_exit_decision code=0 .*unresolved_count=0' "final_exit_0" || failures=$((failures + 1))
 else
   failures=$((failures + 1))
 fi
 
-if run_expected "combined_canary_dead_letter_unresolved" 0 "$gap_over_limit_root" with_packages \
-  --conf "spark.recon.failOnGaps=false" \
+if run_expected "empty_canary_dead_letter_unresolved" 1 "$gap_two_root" with_packages \
+  --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
+  --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
+  --conf "spark.recon.canaryTopic=$EMPTY_CANARY_TOPIC" \
+  --conf "spark.recon.deadLetterTopic=$DEAD_LETTER_ONLY_TOPIC"; then
+  assert_stdout_regex "empty_canary_dead_letter_unresolved" 'recon.failOnGaps=true' "fail_on_gaps_true" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_unresolved" 'side_topic_bucket=dead_letter_explained source_topic=orders side_topic=orders-dlq-only partition=0 offset_count=1 offsets=\[1\]' "dead_letter_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_unresolved" 'side_topic_bucket=unresolved source_topic=orders side_topic=<none> partition=0 offset_count=1 offsets=\[2\]' "unresolved_offset_2" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_unresolved" 'side_topic_summary .*raw_gap_partition_count=1 .*bounded_missing_offset_count=2 .*canary_explained_count=0 .*dead_letter_explained_count=1 .*unresolved_count=1 .*canary_record_count=0 .*dead_letter_record_count=1' "empty_canary_dead_letter_summary" || failures=$((failures + 1))
+  assert_stdout_regex "empty_canary_dead_letter_unresolved" 'final_exit_decision code=1 .*unresolved_count=1' "final_exit_1" || failures=$((failures + 1))
+else
+  failures=$((failures + 1))
+fi
+
+if run_expected "canary_dead_letter_resolved" 0 "$gap_two_root" with_packages \
   --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
   --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
   --conf "spark.recon.canaryTopic=$CANARY_TOPIC" \
   --conf "spark.recon.deadLetterTopic=$DEAD_LETTER_TOPIC"; then
-  assert_stdout_regex "combined_canary_dead_letter_unresolved" 'side_topic_bucket=canary_explained .*partition=0 .*offset_count=1 .*offsets=\[1\]' "combined_canary_offset_1" || failures=$((failures + 1))
-  assert_stdout_regex "combined_canary_dead_letter_unresolved" 'side_topic_bucket=dead_letter_explained .*partition=0 .*offset_count=1 .*offsets=\[2\]' "combined_dead_letter_offset_2" || failures=$((failures + 1))
-  assert_stdout_regex "combined_canary_dead_letter_unresolved" 'side_topic_bucket=unresolved .*partition=0 .*offset_count=1 .*offsets=\[3\]' "combined_unresolved_offset_3" || failures=$((failures + 1))
-  assert_stdout_regex "combined_canary_dead_letter_unresolved" 'side_topic_summary .*canary_explained_count=1 .*dead_letter_explained_count=1 .*unresolved_count=1' "combined_summary" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_resolved" 'recon.failOnGaps=true' "fail_on_gaps_true" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_resolved" 'side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=\[1\]' "canary_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_resolved" 'side_topic_bucket=dead_letter_explained source_topic=orders side_topic=orders-dlq partition=0 offset_count=1 offsets=\[2\]' "dead_letter_offset_2" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_resolved" 'side_topic_summary .*raw_gap_partition_count=1 .*bounded_missing_offset_count=2 .*canary_explained_count=1 .*dead_letter_explained_count=1 .*unresolved_count=0 .*canary_record_count=5 .*dead_letter_record_count=4' "canary_dead_letter_summary" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_resolved" 'final_exit_decision code=0 .*unresolved_count=0' "final_exit_0" || failures=$((failures + 1))
 else
   failures=$((failures + 1))
 fi
 
-if run_expected "unresolved_no_matching_side_topic_records" 0 "$gap_over_limit_root" with_packages \
-  --conf "spark.recon.failOnGaps=false" \
+if run_expected "canary_dead_letter_truncated_prefix_only" 1 "$gap_over_limit_root" with_packages \
+  --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
+  --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
+  --conf "spark.recon.canaryTopic=$CANARY_TOPIC" \
+  --conf "spark.recon.deadLetterTopic=$DEAD_LETTER_TOPIC" \
+  --conf "spark.recon.missingOffsetsLimit=2"; then
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'recon.failOnGaps=true' "fail_on_gaps_true" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'recon.missingOffsetsLimit=2' "missing_offsets_limit_2" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'partition=0 .*missing_offset_count=3 .*missing_offsets=\[1,2\] .*missing_offsets_limit=2 .*missing_offsets_truncated=true' "truncated_partition_0" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=\[1\]' "canary_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'side_topic_bucket=dead_letter_explained source_topic=orders side_topic=orders-dlq partition=0 offset_count=1 offsets=\[2\]' "dead_letter_offset_2" || failures=$((failures + 1))
+  assert_stdout_not_regex "canary_dead_letter_truncated_prefix_only" 'side_topic_bucket=unresolved' "no_materialized_unresolved_bucket" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'side_topic_summary .*raw_gap_partition_count=1 .*bounded_missing_offset_count=2 .*canary_explained_count=1 .*dead_letter_explained_count=1 .*unresolved_count=0 .*canary_record_count=5 .*dead_letter_record_count=4 .*missing_offsets_truncated=true' "truncated_side_topic_summary" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'final_exit_decision code=1 .*reason=.*unresolved_offsets_may_remain_beyond_materialized_limit' "final_exit_truncation_reason" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'final_exit_decision code=1 .*unresolved_count=0 .*bounded_missing_offset_count=2 .*missing_offsets_truncated=true' "final_exit_truncation_fields" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_truncated_prefix_only" 'RESULT: FAIL .*unresolved offsets may remain beyond materialized limit' "result_fail_truncation_reason" || failures=$((failures + 1))
+else
+  failures=$((failures + 1))
+fi
+
+if run_expected "canary_dead_letter_unresolved" 1 "$gap_over_limit_root" with_packages \
+  --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
+  --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
+  --conf "spark.recon.canaryTopic=$CANARY_TOPIC" \
+  --conf "spark.recon.deadLetterTopic=$DEAD_LETTER_TOPIC"; then
+  assert_stdout_regex "canary_dead_letter_unresolved" 'recon.failOnGaps=true' "fail_on_gaps_true" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_unresolved" 'side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=\[1\]' "canary_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_unresolved" 'side_topic_bucket=dead_letter_explained source_topic=orders side_topic=orders-dlq partition=0 offset_count=1 offsets=\[2\]' "dead_letter_offset_2" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_unresolved" 'side_topic_bucket=unresolved source_topic=orders side_topic=<none> partition=0 offset_count=1 offsets=\[3\]' "unresolved_offset_3" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_unresolved" 'side_topic_summary .*raw_gap_partition_count=1 .*bounded_missing_offset_count=3 .*canary_explained_count=1 .*dead_letter_explained_count=1 .*unresolved_count=1 .*canary_record_count=5 .*dead_letter_record_count=4' "canary_dead_letter_summary" || failures=$((failures + 1))
+  assert_stdout_regex "canary_dead_letter_unresolved" 'final_exit_decision code=1 .*unresolved_count=1' "final_exit_1" || failures=$((failures + 1))
+else
+  failures=$((failures + 1))
+fi
+
+if run_expected "wrong_topic_wrong_partition_nonmatches" 1 "$gap_over_limit_root" with_packages \
   --conf "spark.recon.sourceTopic=shipments" \
   --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
   --conf "spark.recon.canaryTopic=$CANARY_TOPIC" \
   --conf "spark.recon.deadLetterTopic=$DEAD_LETTER_TOPIC"; then
-  assert_stdout_regex "unresolved_no_matching_side_topic_records" 'side_topic_bucket=unresolved .*source_topic=shipments .*partition=0 .*offset_count=3 .*offsets=\[1,2,3\]' "unresolved_all_offsets" || failures=$((failures + 1))
-  assert_stdout_regex "unresolved_no_matching_side_topic_records" 'side_topic_summary .*canary_explained_count=0 .*dead_letter_explained_count=0 .*unresolved_count=3' "unresolved_summary" || failures=$((failures + 1))
+  assert_stdout_regex "wrong_topic_wrong_partition_nonmatches" 'side_topic_bucket=unresolved source_topic=shipments side_topic=<none> partition=0 offset_count=3 offsets=\[1,2,3\]' "unresolved_all_offsets" || failures=$((failures + 1))
+  assert_stdout_regex "wrong_topic_wrong_partition_nonmatches" 'side_topic_summary .*canary_explained_count=0 .*dead_letter_explained_count=0 .*unresolved_count=3 .*canary_record_count=5 .*dead_letter_record_count=4' "unresolved_summary" || failures=$((failures + 1))
 else
   failures=$((failures + 1))
 fi
 
-if run_expected "no_side_topic_regression" 0 "$gap_root" without_packages \
-  --conf "spark.recon.failOnGaps=false"; then
+if run_expected "no_side_topic_regression" 1 "$gap_root" without_packages; then
   assert_stdout_regex "no_side_topic_regression" 'recon.sideTopic.enabled=false' "side_topic_disabled" || failures=$((failures + 1))
   assert_stdout_not_regex "no_side_topic_regression" 'side_topic_reconciliation_begin' "no_side_topic_read" || failures=$((failures + 1))
-  assert_stdout_regex "no_side_topic_regression" 'RESULT: PASS' "no_side_topic_pass" || failures=$((failures + 1))
+  assert_stdout_regex "no_side_topic_regression" 'RESULT: FAIL offset gaps detected: gap_partition_count=1' "no_side_topic_fail" || failures=$((failures + 1))
 else
   failures=$((failures + 1))
 fi
@@ -632,7 +702,6 @@ else
 fi
 
 if run_expected "fail_closed_unreachable_bootstrap" 2 "$gap_root" with_packages \
-  --conf "spark.recon.failOnGaps=false" \
   --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
   --conf "spark.recon.kafkaBootstrapServers=127.0.0.1:1" \
   --conf "spark.recon.canaryTopic=$CANARY_TOPIC"; then
@@ -642,7 +711,6 @@ else
 fi
 
 if run_expected "fail_closed_undecodable_payload" 2 "$gap_root" with_packages \
-  --conf "spark.recon.failOnGaps=false" \
   --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
   --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
   --conf "spark.recon.canaryTopic=$BAD_CANARY_TOPIC"; then
@@ -651,12 +719,13 @@ else
   failures=$((failures + 1))
 fi
 
-if run_wrapper_expected "production_wrapper_combined_config_capture" 0 "$gap_over_limit_root"; then
+if run_wrapper_expected "production_wrapper_combined_config_capture" 1 "$gap_over_limit_root"; then
   assert_stdout_regex "production_wrapper_combined_config_capture" 'recon.sourceTopic=orders' "wrapper_source_topic" || failures=$((failures + 1))
   assert_stdout_regex "production_wrapper_combined_config_capture" "recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" "wrapper_bootstrap" || failures=$((failures + 1))
   assert_stdout_regex "production_wrapper_combined_config_capture" 'recon.canaryTopic=orders-canary' "wrapper_canary_topic" || failures=$((failures + 1))
   assert_stdout_regex "production_wrapper_combined_config_capture" 'recon.deadLetterTopic=orders-dlq' "wrapper_dead_letter_topic" || failures=$((failures + 1))
   assert_stdout_regex "production_wrapper_combined_config_capture" 'side_topic_bucket=unresolved .*offsets=\[3\]' "wrapper_unresolved_offset_3" || failures=$((failures + 1))
+  assert_stdout_regex "production_wrapper_combined_config_capture" 'final_exit_decision code=1 .*unresolved_count=1' "wrapper_final_exit_1" || failures=$((failures + 1))
 else
   failures=$((failures + 1))
 fi

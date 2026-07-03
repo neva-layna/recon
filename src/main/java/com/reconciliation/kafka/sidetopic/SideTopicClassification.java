@@ -36,6 +36,14 @@ public final class SideTopicClassification {
      */
     public final long unresolvedCount;
     /**
+     * Number of raw parquet partitions with gaps before side-topic matching.
+     */
+    public final long rawGapPartitionCount;
+    /**
+     * Number of bounded missing offsets available for exact side-topic matching.
+     */
+    public final long boundedMissingOffsetCount;
+    /**
      * Total decoded canary records read from Kafka.
      */
     public final long canaryRecordCount;
@@ -70,6 +78,8 @@ public final class SideTopicClassification {
      * @param canaryExplainedCount count of canary-explained offsets
      * @param deadLetterExplainedCount count of dead-letter-explained offsets
      * @param unresolvedCount count of unexplained offsets
+     * @param rawGapPartitionCount raw parquet partitions with gaps
+     * @param boundedMissingOffsetCount bounded missing offsets classified
      * @param canaryRecordCount decoded canary record count
      * @param deadLetterRecordCount decoded dead-letter record count
      * @param deadLetterFailureEventIdCount matched failureEventId count
@@ -85,6 +95,8 @@ public final class SideTopicClassification {
         long canaryExplainedCount,
         long deadLetterExplainedCount,
         long unresolvedCount,
+        long rawGapPartitionCount,
+        long boundedMissingOffsetCount,
         long canaryRecordCount,
         long deadLetterRecordCount,
         long deadLetterFailureEventIdCount,
@@ -99,6 +111,8 @@ public final class SideTopicClassification {
         this.canaryExplainedCount = canaryExplainedCount;
         this.deadLetterExplainedCount = deadLetterExplainedCount;
         this.unresolvedCount = unresolvedCount;
+        this.rawGapPartitionCount = rawGapPartitionCount;
+        this.boundedMissingOffsetCount = boundedMissingOffsetCount;
         this.canaryRecordCount = canaryRecordCount;
         this.deadLetterRecordCount = deadLetterRecordCount;
         this.deadLetterFailureEventIdCount = deadLetterFailureEventIdCount;

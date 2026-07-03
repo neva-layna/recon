@@ -55,16 +55,32 @@ public final class ReconReporter {
      *         disabled
      */
     public static void finish(CheckerConfig config, int code, List<String> reasons) {
+        finish(config, code, reasons, "no gaps detected");
+    }
+
+    /**
+     * Prints the final pass/fail result and either requests JVM exit or throws on
+     * failure when exit-on-completion is disabled.
+     *
+     * @param config resolved configuration controlling exit behavior
+     * @param code final process-style result code
+     * @param reasons failure reasons; empty means pass
+     * @param passMessage operator-facing pass reason when reasons is empty
+     * @throws ReconExit when exit-on-completion is enabled
+     * @throws RuntimeException when the run failed and exit-on-completion is
+     *         disabled
+     */
+    public static void finish(CheckerConfig config, int code, List<String> reasons, String passMessage) {
         if (!reasons.isEmpty()) {
             String message = String.join("; ", reasons);
             System.err.println(ReconConstants.RECON_PREFIX + " ERROR: " + message);
             System.out.println(ReconConstants.RECON_PREFIX + " RESULT: FAIL " + message);
         } else {
-            System.out.println(ReconConstants.RECON_PREFIX + " RESULT: PASS no gaps detected");
+            System.out.println(ReconConstants.RECON_PREFIX + " RESULT: PASS " + passMessage);
         }
 
         if (config.exitOnCompletion) {
-            throw new ReconExit(code, reasons.isEmpty() ? "no gaps detected" : String.join("; ", reasons), true);
+            throw new ReconExit(code, reasons.isEmpty() ? passMessage : String.join("; ", reasons), true);
         } else if (code != 0) {
             throw new RuntimeException(String.join("; ", reasons));
         }

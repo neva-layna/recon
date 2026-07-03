@@ -165,6 +165,10 @@ Side-topic reconciliation is intentionally bounded:
 - The side-topic classifier uses the bounded `missing_offsets` values from the
   gap analysis. If `recon.missingOffsetsLimit` truncates that list, the
   side-topic summary prints `missing_offsets_truncated=true`.
+- With `recon.failOnGaps=true`, the Java checker exits `0` only when the
+  missing-offset materialization is not truncated and every materialized offset
+  is explained by side-topic matching. Unresolved offsets or
+  `missing_offsets_truncated=true` exit `1`.
 - Kafka read failures, incomplete side-topic config, and undecodable Avro
   payloads fail closed with exit code `2`.
 

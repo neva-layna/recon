@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -32,16 +33,23 @@ public final class SideTopicReconciler {
     }
 
     /**
-     * Runs side-topic reconciliation when side-topic config is present.
+     * Runs side-topic reconciliation when side-topic config is present and
+     * returns the classification needed by final exit-code decisions.
      *
      * @param spark active Spark session used to read Kafka
      * @param config checker configuration with optional side-topic settings
      * @param gaps gap analytics result to explain
+     * @return classification when side-topic config is present
      * @throws ReconExit when Kafka reads or Avro decoding fail
      */
-    public static void reconcileIfConfigured(SparkSession spark, CheckerConfig config, GapAnalysisResult gaps) {
+    public static Optional<SideTopicClassification> reconcileIfConfigured(
+        SparkSession spark,
+        CheckerConfig config,
+        GapAnalysisResult gaps
+    ) {
         if (!config.sideTopicConfig.isPresent()) {
-            return;
+            System.out.println(ReconConstants.RECON_PREFIX + " side_topic_reconciliation state=disabled");
+            return Optional.empty();
         }
 
         SideTopicConfig sideTopicConfig = config.sideTopicConfig.get();
@@ -69,6 +77,7 @@ public final class SideTopicReconciler {
         );
         printClassification(sideTopicConfig, classification);
         System.out.println(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_end");
+        return Optional.of(classification);
     }
 
     /**
@@ -160,6 +169,8 @@ public final class SideTopicReconciler {
         );
         System.out.println(
             ReconConstants.RECON_PREFIX + " side_topic_summary source_topic=" + classification.sourceTopic
+                + " raw_gap_partition_count=" + classification.rawGapPartitionCount
+                + " bounded_missing_offset_count=" + classification.boundedMissingOffsetCount
                 + " canary_explained_count=" + classification.canaryExplainedCount
                 + " dead_letter_explained_count=" + classification.deadLetterExplainedCount
                 + " unresolved_count=" + classification.unresolvedCount

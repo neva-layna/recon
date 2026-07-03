@@ -139,6 +139,8 @@ val records = Seq(
   SideFixtureRecord(canaryTopic, "canary", sourceTopic, 0, 1L, "canary_only_and_combined_match"),
   SideFixtureRecord(canaryTopic, "canary", sourceTopic, 9, 7L, "false_partition_ignored"),
   SideFixtureRecord(canaryTopic, "canary", "payments", 0, 1L, "false_source_topic_ignored"),
+  SideFixtureRecord(canaryTopic, "canary", sourceTopic, 9, 3L, "false_partition_offset_3_ignored"),
+  SideFixtureRecord(canaryTopic, "canary", "payments", 0, 3L, "false_source_topic_offset_3_ignored"),
   SideFixtureRecord(
     deadLetterTopic,
     "dead_letter",
@@ -158,6 +160,28 @@ val records = Seq(
     2L,
     "false_dead_letter_source_topic_ignored",
     Some("evt-payments-2"),
+    Some("wrong source topic"),
+    Some("RuntimeException")
+  ),
+  SideFixtureRecord(
+    deadLetterTopic,
+    "dead_letter",
+    sourceTopic,
+    9,
+    3L,
+    "false_dead_letter_partition_offset_3_ignored",
+    Some("evt-partition-3"),
+    Some("wrong partition"),
+    Some("RuntimeException")
+  ),
+  SideFixtureRecord(
+    deadLetterTopic,
+    "dead_letter",
+    "payments",
+    0,
+    3L,
+    "false_dead_letter_source_topic_offset_3_ignored",
+    Some("evt-payments-3"),
     Some("wrong source topic"),
     Some("RuntimeException")
   ),

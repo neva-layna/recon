@@ -14,7 +14,7 @@ checker. Do not use the Scala `spark-shell -i` checker for this feature.
 ## Build Before Running
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 ```
 
 The default wrapper artifact is:
@@ -26,9 +26,10 @@ build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
 ## Run With Positional Roots
 
 ```bash
-RUN_DATE=2026-07-02 \
-NORMALIZED_OFFSETS_PATH=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02 \
-scripts/run_java_kafka_offset_gap_check_prod.sh \
+rtk env \
+  RUN_DATE=2026-07-02 \
+  NORMALIZED_OFFSETS_PATH=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2 \
   hdfs:///data/path/to/parquet3
@@ -37,9 +38,10 @@ scripts/run_java_kafka_offset_gap_check_prod.sh \
 ## Run With A Comma-Separated Root List
 
 ```bash
-INPUT_ROOTS_CSV='hdfs:///data/path/to/parquet1,hdfs:///data/path/to/parquet2' \
-RUN_DATE=2026-07-02 \
-scripts/run_java_kafka_offset_gap_check_prod.sh
+rtk env \
+  INPUT_ROOTS_CSV='hdfs:///data/path/to/parquet1,hdfs:///data/path/to/parquet2' \
+  RUN_DATE=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 ## Wrapper Variables
@@ -89,12 +91,13 @@ cache, for example in locked-down containers.
 ## Run With Side-Topic Reconciliation
 
 ```bash
-SOURCE_TOPIC=orders \
-KAFKA_BOOTSTRAP_SERVERS='broker-a:9092,broker-b:9092' \
-CANARY_TOPIC=orders-canary \
-DEAD_LETTER_TOPIC=orders-dlq \
-RUN_DATE=2026-07-02 \
-scripts/run_java_kafka_offset_gap_check_prod.sh \
+rtk env \
+  SOURCE_TOPIC=orders \
+  KAFKA_BOOTSTRAP_SERVERS='broker-a:9092,broker-b:9092' \
+  CANARY_TOPIC=orders-canary \
+  DEAD_LETTER_TOPIC=orders-dlq \
+  RUN_DATE=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/orders/root-a \
   hdfs:///data/orders/root-b
 ```
@@ -102,8 +105,12 @@ scripts/run_java_kafka_offset_gap_check_prod.sh \
 The checker reads configured side topics from `earliest`, decodes Avro
 object-container payloads, and matches records to missing parquet offsets by
 `sourceTopic`, `sourcePartition`, and `sourceOffset`. Side-topic matches do not
-change `FAIL_ON_GAPS`; they explain gaps while preserving the existing exit
-class behavior.
+disable `FAIL_ON_GAPS`: with `FAIL_ON_GAPS=true`, raw parquet gaps exit `0`
+only when the missing-offset materialization is not truncated and every
+materialized offset is explained by canary and/or dead-letter records. They
+exit `1` when any materialized offset remains unresolved or when
+`missing_offsets_truncated=true`. Without side-topic config, raw parquet gaps
+still exit `1`.
 
 Use `MISSING_OFFSETS_LIMIT` high enough to materialize the offsets you need to
 reconcile. If the gap list is truncated, the side-topic summary prints
@@ -115,7 +122,7 @@ classified.
 The wrapper is preferred, but the equivalent direct shape is:
 
 ```bash
-spark-submit \
+rtk spark-submit \
   --class com.reconciliation.kafka.KafkaOffsetGapChecker \
   --master yarn \
   --conf 'spark.sql.session.timeZone=UTC' \
@@ -130,7 +137,7 @@ spark-submit \
 For the side-topic feature, the direct Java `spark-submit` shape is:
 
 ```bash
-spark-submit \
+rtk spark-submit \
   --class com.reconciliation.kafka.KafkaOffsetGapChecker \
   --master yarn \
   --packages 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4' \
@@ -163,16 +170,17 @@ Important sections:
 | `side_topic_bucket=canary_explained` | Missing offsets found in the canary topic. |
 | `side_topic_bucket=dead_letter_explained` | Missing offsets found in the dead-letter topic. |
 | `side_topic_bucket=unresolved` | Missing offsets not found in configured side topics. |
-| `side_topic_summary` | Counts for explained/unresolved offsets, decoded records, and `missing_offsets_truncated`. |
+| `side_topic_summary` | Raw gap partition count, bounded missing-offset count, explained/unresolved counts, decoded record counts, and `missing_offsets_truncated`. |
 | `side_topic_dead_letter_fields` | Counts of matched dead-letter payloads containing failure fields. |
+| `final_exit_decision` | Final code, reason, raw gap count, side-topic state, and explained/unresolved counts. |
 | `RESULT: PASS` or `RESULT: FAIL` | Final operator result. |
 
 ## Exit Codes
 
 | Code | Meaning |
 | ---: | --- |
-| 0 | Check completed and no configured failure condition was found. |
-| 1 | Valid offset data was read, but gaps or invalid metadata rows failed the check. |
+| 0 | Check completed and no configured failure condition was found; side-topic runs with raw gaps may pass when every materialized missing offset is explained and `missing_offsets_truncated=false`. |
+| 1 | Valid offset data was read, but raw gaps, unresolved side-topic offsets, truncated missing-offset materialization, or invalid metadata rows failed the check. |
 | 2 | Configuration or input data prevented a meaningful check. |
 
 Exit code `2` includes missing roots, invalid boolean/run-date/integer config,

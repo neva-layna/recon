@@ -44,7 +44,7 @@ Use a stable Gradle cache location if you want repeatable local and Docker
 validation:
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 ```
 
 The jar is written to:
@@ -65,15 +65,16 @@ The production wrapper still passes the main class explicitly to
 ## Run Unit Tests
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew test
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew test
 ```
 
 To run with the local Java 8 installation used during validation:
 
 ```bash
-JAVA_HOME=/Users/nlayna/Library/Java/JavaVirtualMachines/liberica-full-1.8.0_492 \
-GRADLE_USER_HOME=/tmp/recon-gradle \
-./gradlew --no-daemon test
+rtk env \
+  JAVA_HOME=/Users/nlayna/Library/Java/JavaVirtualMachines/liberica-full-1.8.0_492 \
+  GRADLE_USER_HOME=/tmp/recon-gradle \
+  ./gradlew --no-daemon test
 ```
 
 ## Verify Java 8 Bytecode
@@ -118,7 +119,7 @@ edge nodes.
 Inspect the compile classpath with:
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew dependencies --configuration compileClasspath
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew dependencies --configuration compileClasspath
 ```
 
 The dependency tree must contain Spark 3.5.x and Scala 2.12 artifacts only for

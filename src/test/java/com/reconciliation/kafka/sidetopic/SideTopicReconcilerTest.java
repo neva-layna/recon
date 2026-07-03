@@ -40,10 +40,12 @@ public class SideTopicReconcilerTest {
             1L,
             2L,
             3L,
+            2L,
+            3L,
             1L,
             1L,
             1L,
-            false
+            true
         );
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -66,8 +68,9 @@ public class SideTopicReconcilerTest {
             "[recon] side_topic_bucket=unresolved source_topic=orders side_topic=<none> partition=1 offset_count=1 offsets=[9]"
         ));
         assertTrue(text.contains(
-            "[recon] side_topic_summary source_topic=orders canary_explained_count=1 dead_letter_explained_count=1 unresolved_count=1"
+            "[recon] side_topic_summary source_topic=orders raw_gap_partition_count=2 bounded_missing_offset_count=3 canary_explained_count=1 dead_letter_explained_count=1 unresolved_count=1"
         ));
+        assertTrue(text.contains("missing_offsets_truncated=true"));
         assertTrue(text.contains(
             "[recon] side_topic_dead_letter_fields failure_event_id_count=1 reason_msg_count=1 exception_count=1"
         ));

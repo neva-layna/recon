@@ -44,7 +44,7 @@ that only preserve `spark.*` keys.
 | `recon.normalizedOffsetsPath` | none | Optional parquet path where normalized offsets are written and read back before analytics. |
 | `recon.normalizedOffsetsOverwrite` | `true` | Overwrite the normalized-offset path when persistence is enabled. |
 | `recon.failOnInvalidRows` | `true` | Exit non-zero when malformed or incomplete metadata rows are present. |
-| `recon.failOnGaps` | `true` | Exit non-zero when any Kafka partition has missing offsets. |
+| `recon.failOnGaps` | `true` | Exit non-zero for raw gaps without side topics, or for unresolved bounded offsets after Java side-topic reconciliation. |
 | `recon.missingOffsetsLimit` | `1000` | Per-partition safety limit for materializing actual missing offset values in output. Set `0` to report only counts and mark gapped partitions as truncated. |
 | `recon.exitOnCompletion` | `true` | Call `System.exit` so automation does not remain in the interactive shell. |
 
@@ -80,7 +80,7 @@ For the Scala parquet-gap checker, use Spark 3.5.x and pass behavior through
 Spark conf:
 
 ```bash
-spark-shell \
+rtk spark-shell \
   --master yarn \
   --conf 'spark.sql.session.timeZone=UTC' \
   --conf 'recon.inputRoots=hdfs:///warehouse/topic/root-a,hdfs:///warehouse/topic/root-b' \
@@ -93,7 +93,7 @@ spark-shell \
 With persisted normalized offsets:
 
 ```bash
-spark-shell \
+rtk spark-shell \
   --master yarn \
   --conf 'spark.sql.session.timeZone=UTC' \
   --conf 'recon.inputRoots=hdfs:///warehouse/topic/root-a,hdfs:///warehouse/topic/root-b' \
@@ -163,15 +163,16 @@ and exit code classes as the Scala `spark-shell -i` oracle script.
 Build the jar:
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 ```
 
 Run with the Java production wrapper:
 
 ```bash
-RUN_DATE=2026-07-02 \
-NORMALIZED_OFFSETS_PATH=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02 \
-scripts/run_java_kafka_offset_gap_check_prod.sh \
+rtk env \
+  RUN_DATE=2026-07-02 \
+  NORMALIZED_OFFSETS_PATH=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2
 ```
@@ -218,13 +219,14 @@ treated as unresolved data loss.
 Use the Java production wrapper for side-topic reconciliation:
 
 ```bash
-SOURCE_TOPIC=orders \
-KAFKA_BOOTSTRAP_SERVERS='broker-a:9092,broker-b:9092' \
-CANARY_TOPIC=orders-canary \
-DEAD_LETTER_TOPIC=orders-dlq \
-SIDE_TOPIC_STARTING_OFFSETS=earliest \
-RUN_DATE=2026-07-02 \
-scripts/run_java_kafka_offset_gap_check_prod.sh \
+rtk env \
+  SOURCE_TOPIC=orders \
+  KAFKA_BOOTSTRAP_SERVERS='broker-a:9092,broker-b:9092' \
+  CANARY_TOPIC=orders-canary \
+  DEAD_LETTER_TOPIC=orders-dlq \
+  SIDE_TOPIC_STARTING_OFFSETS=earliest \
+  RUN_DATE=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/orders/root-a \
   hdfs:///data/orders/root-b
 ```
@@ -240,7 +242,7 @@ org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4
 Direct Java `spark-submit` uses the same configs:
 
 ```bash
-spark-submit \
+rtk spark-submit \
   --class com.reconciliation.kafka.KafkaOffsetGapChecker \
   --master yarn \
   --packages 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4' \
@@ -388,16 +390,16 @@ validate a full HDFS cluster.
 Build the Java checker first:
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 ```
 
 Run the Java `spark-submit` fixture matrix:
 
 ```bash
-mkdir -p .recon-local
-chmod 0777 .recon-local
+rtk mkdir -p .recon-local
+rtk chmod 0777 .recon-local
 
-docker run --rm \
+rtk docker run --rm \
   --entrypoint /bin/bash \
   -e SPARK_SHELL_BIN=/opt/spark/bin/spark-shell \
   -e SPARK_SUBMIT_BIN=/opt/spark/bin/spark-submit \
@@ -421,40 +423,56 @@ through `spark-shell -i scripts/check_kafka_offset_gaps.scala`.
 Run the full Java side-topic matrix with Spark 3.5.x and Kafka 3.x in Docker:
 
 ```bash
-GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
+rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 
-scripts/run_java_kafka_side_topic_docker_checks.sh
+rtk scripts/run_java_kafka_side_topic_docker_checks.sh
 ```
 
 The Docker wrapper starts `apache/kafka:3.7.0`, creates the `orders-canary`,
-`orders-dlq`, `orders-dlq-only`, and `orders-bad-canary` topics, then runs the
+`orders-dlq`, `orders-dlq-only`, `orders-empty-canary`, `orders-empty-dlq`,
+and `orders-bad-canary` topics, then runs the
 side-topic matrix in `apache/spark:3.5.6`. The Spark-side runner uses
 `tests/fixtures/generate_kafka_side_topic_records.scala` only to create Avro
 object-container side-topic messages and runs all checker scenarios through
 Java `spark-submit`. Evidence is written under `.recon-local-side/evidence/run/`,
-including `kafka/side_topic_records.tsv`.
+including `scenario_results.tsv`, `assertion_results.tsv`,
+`kafka/kafka_image.txt`, and `kafka/side_topic_records.tsv`.
+
+The side-topic matrix includes these Java-only exit-semantics scenarios, all
+with `recon.failOnGaps=true`:
+
+| Scenario | Expected exit | Meaning |
+| --- | ---: | --- |
+| `canary_empty_dead_letter_resolved` | 0 | Canary explains all bounded missing offsets; dead-letter is configured but empty. |
+| `canary_empty_dead_letter_unresolved` | 1 | Canary explains one bounded offset and another remains unresolved. |
+| `empty_canary_dead_letter_resolved` | 0 | Dead-letter explains all bounded missing offsets; canary is configured but empty. |
+| `empty_canary_dead_letter_unresolved` | 1 | Dead-letter explains one bounded offset and another remains unresolved. |
+| `canary_dead_letter_resolved` | 0 | Canary and dead-letter together explain all bounded missing offsets. |
+| `canary_dead_letter_truncated_prefix_only` | 1 | Real missing offsets exceed `recon.missingOffsetsLimit`; side topics explain only the materialized prefix. |
+| `canary_dead_letter_unresolved` | 1 | Canary and dead-letter leave one bounded offset unresolved. |
 
 To run the Java helper with already available Spark 3.5.x binaries and only
 Kafka in Docker:
 
 ```bash
-SPARK_SHELL_BIN=spark-shell \
-SPARK_SUBMIT_BIN=spark-submit \
-CHECKER_JAR=build/libs/recon-kafka-offset-gap-checker-1.0.0.jar \
-FIXTURE_ROOT=/tmp/recon-kafka-offset-fixtures-java \
-EVIDENCE_ROOT=/tmp/recon-kafka-offset-evidence-java \
-RUN_DATE=2026-07-02 \
-scripts/run_java_kafka_offset_gap_fixture_checks.sh
+rtk env \
+  SPARK_SHELL_BIN=spark-shell \
+  SPARK_SUBMIT_BIN=spark-submit \
+  CHECKER_JAR=build/libs/recon-kafka-offset-gap-checker-1.0.0.jar \
+  FIXTURE_ROOT=/tmp/recon-kafka-offset-fixtures-java \
+  EVIDENCE_ROOT=/tmp/recon-kafka-offset-evidence-java \
+  RUN_DATE=2026-07-02 \
+  scripts/run_java_kafka_offset_gap_fixture_checks.sh
 ```
 
 The original Scala fixture runner remains useful as an oracle check for
 `scripts/check_kafka_offset_gaps.scala`:
 
 ```bash
-mkdir -p .recon-local
-chmod 0777 .recon-local
+rtk mkdir -p .recon-local
+rtk chmod 0777 .recon-local
 
-docker run --rm \
+rtk docker run --rm \
   --entrypoint /bin/bash \
   -e SPARK_SHELL_BIN=/opt/spark/bin/spark-shell \
   -e FIXTURE_ROOT=/recon-local/fixtures \
@@ -474,11 +492,12 @@ checker for each scenario.
 To run the same helper with an already available Spark 3.5.x shell:
 
 ```bash
-SPARK_SHELL_BIN=spark-shell \
-FIXTURE_ROOT=/tmp/recon-kafka-offset-fixtures \
-EVIDENCE_ROOT=/tmp/recon-kafka-offset-evidence \
-RUN_DATE=2026-07-02 \
-scripts/run_kafka_offset_gap_fixture_checks.sh
+rtk env \
+  SPARK_SHELL_BIN=spark-shell \
+  FIXTURE_ROOT=/tmp/recon-kafka-offset-fixtures \
+  EVIDENCE_ROOT=/tmp/recon-kafka-offset-evidence \
+  RUN_DATE=2026-07-02 \
+  scripts/run_kafka_offset_gap_fixture_checks.sh
 ```
 
 ## Fixture Scenarios
@@ -551,9 +570,12 @@ Side-topic output appears only for Java runs with side-topic config enabled. It
 includes `side_topic_reconciliation_begin/end`, one `side_topic_read` line per
 configured side topic, `side_topic_bucket=canary_explained`,
 `side_topic_bucket=dead_letter_explained`, `side_topic_bucket=unresolved`,
-`side_topic_dead_letter_fields`, and `side_topic_summary`. Explained buckets
-show missing parquet offsets found in the configured side topics; unresolved
-buckets show materialized missing parquet offsets not found there.
+`side_topic_dead_letter_fields`, `side_topic_summary`, and
+`final_exit_decision`. Explained buckets show missing parquet offsets found in
+the configured side topics; unresolved buckets show materialized missing
+parquet offsets not found there. `side_topic_summary` includes raw gap
+partition count, bounded missing-offset count, decoded record counts,
+explained counts, unresolved count, and truncation state.
 
 For a gapped partition, `missing_offsets` contains the actual missing offset
 values in ascending order, for example `missing_offsets=[1,4]`. The list is
@@ -564,8 +586,13 @@ only the first `missing_offsets_limit` values and sets
 When `missing_offsets_truncated=false`, the list is complete for that partition.
 
 Exit code `0` means the check completed and no configured failure condition was
-found. Exit code `1` means the checker read valid offset data but failed because
-gaps or invalid metadata rows were detected under the default failure settings.
+found. For Java side-topic runs, raw parquet gaps can still exit `0` when all
+materialized missing offsets are explained by canary and/or dead-letter records
+and `missing_offsets_truncated=false`.
+Exit code `1` means the checker read valid offset data but failed because raw
+gaps without side-topic reconciliation, unresolved side-topic offsets,
+truncated missing-offset materialization, or invalid metadata rows were
+detected under the default failure settings.
 Exit code `2` means configuration or input data prevented a meaningful check,
 including missing input roots, invalid boolean or run-date configuration,
 unreadable parquet, no eligible old partitions, empty readable parquet, missing
