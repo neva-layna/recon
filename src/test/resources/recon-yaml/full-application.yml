@@ -1,3 +1,7 @@
+spring:
+  config:
+    import: "classpath:/recon-yaml/kafka-brokers.yml"
+
 recon:
   input-roots:
     - /yaml/root-a
@@ -12,7 +16,7 @@ recon:
   missing-offsets-limit: 7
   exit-on-completion: false
   source-topic: yaml-orders
-  kafka-bootstrap-servers: yaml-broker:9092
+  kafka-alias: main-kafka
   canary-topic: yaml-orders-canary
   dead-letter-topic: yaml-orders-dlq
   side-topic-starting-offsets: beginning

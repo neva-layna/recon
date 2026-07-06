@@ -41,7 +41,8 @@ public class SideTopicReconcilerTest {
     public void printsMachineReadableSideTopicBucketsAndSummary() throws Exception {
         SideTopicConfig config = new SideTopicConfig(
             "orders",
-            "broker-a:9092",
+            Optional.of("main-kafka"),
+            kafkaConf(),
             Optional.of("orders-canary"),
             Optional.of("orders-dlq"),
             "earliest"
@@ -91,11 +92,48 @@ public class SideTopicReconcilerTest {
         ));
     }
 
+    @Test
+    public void buildsSparkKafkaReaderOptionsFromBrokerConf() {
+        SideTopicConfig config = new SideTopicConfig(
+            "orders",
+            Optional.of("main-kafka"),
+            kafkaConf(),
+            Optional.of("orders-canary"),
+            Optional.of("orders-dlq"),
+            "earliest"
+        );
+
+        Map<String, String> options = SideTopicReaderOptions.build(config, "orders-canary");
+
+        assertTrue(options.containsKey("kafka.bootstrap.servers"));
+        assertTrue(options.containsKey("kafka.security.protocol"));
+        assertTrue(options.containsKey("kafka.max.poll.records"));
+        assertTrue(options.containsKey("subscribe"));
+        assertTrue(options.containsKey("startingOffsets"));
+        assertTrue(options.containsKey("endingOffsets"));
+        assertTrue(options.containsKey("failOnDataLoss"));
+        org.junit.Assert.assertEquals("broker-a:9092", options.get("kafka.bootstrap.servers"));
+        org.junit.Assert.assertEquals("SASL_SSL", options.get("kafka.security.protocol"));
+        org.junit.Assert.assertEquals("500", options.get("kafka.max.poll.records"));
+        org.junit.Assert.assertEquals("orders-canary", options.get("subscribe"));
+        org.junit.Assert.assertEquals("earliest", options.get("startingOffsets"));
+        org.junit.Assert.assertEquals("latest", options.get("endingOffsets"));
+        org.junit.Assert.assertEquals("true", options.get("failOnDataLoss"));
+    }
+
     private String loggedText() {
         StringBuilder builder = new StringBuilder();
         for (ILoggingEvent event : appender.list) {
             builder.append(event.getFormattedMessage()).append('\n');
         }
         return builder.toString();
+    }
+
+    private static Map<String, String> kafkaConf() {
+        Map<String, String> conf = new LinkedHashMap<String, String>();
+        conf.put("bootstrap.servers", "broker-a:9092");
+        conf.put("security.protocol", "SASL_SSL");
+        conf.put("max.poll.records", "500");
+        return conf;
     }
 }

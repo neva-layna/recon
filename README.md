@@ -102,10 +102,38 @@ rtk env \
   scripts/run_java_kafka_offset_gap_check_prod.sh
 ```
 
-For YAML side-topic reconciliation, include `source-topic`,
-`kafka-bootstrap-servers`, and at least one of `canary-topic` or
-`dead-letter-topic` in the same `recon` YAML block, then add the Spark Kafka
-runtime packages through the wrapper:
+For YAML side-topic reconciliation, keep non-broker settings in
+`application.yml`, import a colocated `kafka-brokers.yml`, and select it with
+`recon.kafka-alias`:
+
+```yaml
+spring:
+  config:
+    import: "file:./kafka-brokers.yml"
+
+recon:
+  input-roots:
+    - hdfs:///data/orders/root-a
+    - hdfs:///data/orders/root-b
+  run-date: "2026-07-02"
+  source-topic: orders
+  kafka-alias: main-kafka
+  canary-topic: orders-canary
+  dead-letter-topic: orders-dlq
+  side-topic-starting-offsets: earliest
+```
+
+```yaml
+kafka-configs:
+  broker:
+    main-kafka:
+      conf:
+        "[bootstrap.servers]": broker-a:9092,broker-b:9092
+        "[security.protocol]": PLAINTEXT
+        "[max.poll.records]": 500
+```
+
+Then add the Spark Kafka runtime packages through the wrapper:
 
 ```bash
 rtk env \
@@ -128,9 +156,10 @@ Positional roots or `INPUT_ROOTS_CSV` make the wrapper forward checker values as
 `spark.recon.*` Spark conf keys. Those values override the same settings from
 `application.yml`.
 
-## Quick Side-Topic Run
+## Quick Side-Topic Spark-Conf Override Run
 
-Use the Java production wrapper with Kafka 3.x bootstrap servers:
+Use the Java production wrapper with Kafka 3.x bootstrap servers when you want
+the legacy launch-time Spark-conf override path instead of YAML broker aliases:
 
 ```bash
 rtk env \
@@ -146,7 +175,8 @@ rtk env \
 ```
 
 The wrapper submits `build/libs/recon-kafka-offset-gap-checker-1.0.0.jar` with
-`spark-submit` and forwards side-topic values as `spark.recon.*` configs. With
+`spark-submit` and forwards side-topic values as `spark.recon.*` configs,
+including legacy `spark.recon.kafkaBootstrapServers`. With
 `FAIL_ON_GAPS=true`, non-truncated missing offsets fully explained by canary
 and/or dead-letter records exit `0`; unresolved offsets or truncated
 missing-offset materialization exit `1`. Incomplete side-topic config,

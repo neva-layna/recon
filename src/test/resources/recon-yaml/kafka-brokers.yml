@@ -1,0 +1,11 @@
+kafka-configs:
+  broker:
+    main-kafka:
+      conf:
+        "[bootstrap.servers]": main-a:9092,main-b:9092
+        "[security.protocol]": SASL_SSL
+        "[max.poll.records]": 250
+    reserved-kafka:
+      conf:
+        "[bootstrap.servers]": reserved-a:9092
+        "[security.protocol]": PLAINTEXT

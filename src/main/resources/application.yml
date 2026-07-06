@@ -3,7 +3,13 @@
 # preferred operator config source; Spark conf values (`recon.*` and
 # `spark.recon.*`) override these settings.
 #
-# Base parquet-gap configuration:
+# Base parquet-gap configuration. For Java side-topic reconciliation, import a
+# colocated broker alias file:
+#
+# spring:
+#   config:
+#     import: "file:./kafka-brokers.yml"
+#
 # recon:
 #   input-roots:
 #     - hdfs:///warehouse/orders/root-a
@@ -23,7 +29,17 @@
 # parquet offsets. The Scala spark-shell checker does not read these settings.
 #
 #   source-topic: orders
-#   kafka-bootstrap-servers: broker-a:9092,broker-b:9092
+#   kafka-alias: main-kafka
 #   canary-topic: orders-canary
 #   dead-letter-topic: orders-dlq
 #   side-topic-starting-offsets: earliest
+#
+# Example kafka-brokers.yml:
+#
+# kafka-configs:
+#   broker:
+#     main-kafka:
+#       conf:
+#         "[bootstrap.servers]": broker-a:9092,broker-b:9092
+#         "[security.protocol]": PLAINTEXT
+#         "[max.poll.records]": 500

@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CheckerConfigurationService {
     private final ConfLookup confLookup;
+    private final KafkaConfigsProperties kafkaConfigsProperties;
     private final Supplier<LocalDate> currentDateSupplier;
 
     /**
@@ -22,6 +23,6 @@ public class CheckerConfigurationService {
      * @return resolved checker configuration
      */
     public CheckerConfig load() {
-        return ConfigLoader.loadConfig(confLookup, currentDateSupplier);
+        return ConfigLoader.loadConfig(confLookup, kafkaConfigsProperties, currentDateSupplier);
     }
 }

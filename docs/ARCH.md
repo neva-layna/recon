@@ -182,9 +182,11 @@ Side-topic reconciliation is intentionally bounded:
   remains a parquet-gap oracle and does not read side topics.
 - Runtime Spark must be Spark 3.5.x, Spark connector artifacts must use Scala
   2.12, and Kafka brokers/fixtures must be Kafka 3.x.
-- `recon.sourceTopic`, `recon.kafkaBootstrapServers`, and at least one of
-  `recon.canaryTopic` or `recon.deadLetterTopic` are required when any
-  side-topic config is present.
+- `recon.sourceTopic`, `recon.kafkaAlias` plus
+  `kafka-configs.broker.<alias>.conf[bootstrap.servers]`, and at least one of
+  `recon.canaryTopic` or `recon.deadLetterTopic` are required for YAML
+  side-topic config. Legacy Spark-conf/wrapper runs may still pass direct
+  `spark.recon.kafkaBootstrapServers`.
 - `recon.sideTopicStartingOffsets` accepts `earliest` or `beginning`; both read
   from the beginning of the side topics.
 - The side-topic classifier uses the bounded `missing_offsets` values from the

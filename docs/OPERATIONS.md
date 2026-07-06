@@ -58,20 +58,34 @@ rtk env \
 `spark-submit`. You can also set `SPRING_CONFIG_LOCATION` directly when using a
 standard Spring Boot config location.
 
-For side-topic reconciliation in YAML, add the side-topic keys to the same
-`recon` block:
+For side-topic reconciliation in YAML, import a broker alias file and keep
+side-topic topic settings in the same `recon` block:
 
 ```yaml
+spring:
+  config:
+    import: "file:./kafka-brokers.yml"
+
 recon:
   input-roots:
     - hdfs:///data/orders/root-a
     - hdfs:///data/orders/root-b
   run-date: "2026-07-02"
   source-topic: orders
-  kafka-bootstrap-servers: broker-a:9092,broker-b:9092
+  kafka-alias: main-kafka
   canary-topic: orders-canary
   dead-letter-topic: orders-dlq
   side-topic-starting-offsets: earliest
+```
+
+```yaml
+kafka-configs:
+  broker:
+    main-kafka:
+      conf:
+        "[bootstrap.servers]": broker-a:9092,broker-b:9092
+        "[security.protocol]": PLAINTEXT
+        "[max.poll.records]": 500
 ```
 
 When side-topic settings live only in YAML, ask the wrapper to add the Spark
@@ -131,7 +145,7 @@ rtk env \
 | `FAIL_ON_GAPS` | `true` | Exit non-zero when gaps exist. |
 | `EXIT_ON_COMPLETION` | `true` | Whether the checker exits the JVM with the final checker code. |
 | `SOURCE_TOPIC` | none | Source Kafka topic identity used to match side-topic records. |
-| `KAFKA_BOOTSTRAP_SERVERS` | none | Kafka bootstrap servers for configured side-topic reads. |
+| `KAFKA_BOOTSTRAP_SERVERS` | none | Legacy Spark-conf override for Kafka bootstrap servers when side-topic settings are supplied through wrapper environment variables. YAML-first runs should use `recon.kafka-alias` and `kafka-brokers.yml`. |
 | `CANARY_TOPIC` | none | Optional Kafka canary topic containing Avro object-container payloads. |
 | `DEAD_LETTER_TOPIC` | none | Optional Kafka dead-letter topic containing Avro object-container payloads. |
 | `SIDE_TOPIC_STARTING_OFFSETS` | `earliest` | Side-topic read start; `earliest` and `beginning` are accepted. |
@@ -145,8 +159,8 @@ forwards base checker values as `spark.recon.*` Spark conf keys.
 
 When any side-topic variable is set, `SOURCE_TOPIC`,
 `KAFKA_BOOTSTRAP_SERVERS`, and at least one of `CANARY_TOPIC` or
-`DEAD_LETTER_TOPIC` are required. The wrapper adds the Spark 3.5 Kafka source
-and Avro packages by default:
+`DEAD_LETTER_TOPIC` are required for the legacy Spark-conf override path. The
+wrapper adds the Spark 3.5 Kafka source and Avro packages by default:
 
 ```text
 org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4
@@ -165,6 +179,10 @@ operator config source. A commented sample is packaged at
 `src/main/resources/application.yml`.
 
 ```yaml
+spring:
+  config:
+    import: "file:./kafka-brokers.yml"
+
 recon:
   input-roots:
     - hdfs:///warehouse/orders/root-a
@@ -179,10 +197,20 @@ recon:
   missing-offsets-limit: 1000
   exit-on-completion: true
   source-topic: orders
-  kafka-bootstrap-servers: broker-a:9092,broker-b:9092
+  kafka-alias: main-kafka
   canary-topic: orders-canary
   dead-letter-topic: orders-dlq
   side-topic-starting-offsets: earliest
+```
+
+```yaml
+kafka-configs:
+  broker:
+    main-kafka:
+      conf:
+        "[bootstrap.servers]": broker-a:9092,broker-b:9092
+        "[security.protocol]": PLAINTEXT
+        "[max.poll.records]": 500
 ```
 
 Spring relaxed binding also accepts camelCase names such as `inputRoots` and
@@ -191,8 +219,11 @@ Spring relaxed binding also accepts camelCase names such as `inputRoots` and
 
 Spark conf remains the override layer. Existing `recon.*` and
 `spark.recon.*` keys, including wrapper-forwarded values, take precedence over
-the same setting from `application.yml`. Side-topic `beginning` is normalized
-to `earliest`; unsupported starting offsets fail with exit code `2`.
+the same setting from `application.yml`. The alias override spellings are
+`recon.kafkaAlias`, `spark.recon.kafkaAlias`, `recon.kafka.alias`, and
+`spark.recon.kafka.alias`. Legacy wrapper/direct-bootstrap overrides still use
+`spark.recon.kafkaBootstrapServers`. Side-topic `beginning` is normalized to
+`earliest`; unsupported starting offsets fail with exit code `2`.
 
 For direct `spark-submit` YAML runs, make the YAML visible to Spring Boot with
 your cluster's standard mechanism, for example `SPRING_CONFIG_LOCATION` in

@@ -1,7 +1,11 @@
+spring:
+  config:
+    import: "classpath:/recon-yaml/kafka-brokers.yml"
+
 recon:
   input-roots:
     - /yaml/root-a
   source-topic: yaml-orders
-  kafka-bootstrap-servers: yaml-broker:9092
+  kafka-alias: main-kafka
   canary-topic: yaml-orders-canary
   side-topic-starting-offsets: latest

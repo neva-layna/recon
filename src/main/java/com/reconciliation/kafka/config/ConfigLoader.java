@@ -4,8 +4,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -34,6 +36,26 @@ public final class ConfigLoader {
      *         configuration is invalid
      */
     public static CheckerConfig loadConfig(ConfLookup lookup, Supplier<LocalDate> currentDateSupplier) {
+        return loadConfig(lookup, new KafkaConfigsProperties(), currentDateSupplier);
+    }
+
+    /**
+     * Loads required and optional checker settings, applying defaults and
+     * resolving imported Kafka broker aliases.
+     *
+     * @param lookup configuration lookup source
+     * @param kafkaConfigs Spring-bound broker alias configuration
+     * @param currentDateSupplier supplies the driver date when recon.runDate is
+     *        omitted
+     * @return resolved checker configuration
+     * @throws com.reconciliation.kafka.support.ReconExit when required or typed
+     *         configuration is invalid
+     */
+    public static CheckerConfig loadConfig(
+        ConfLookup lookup,
+        KafkaConfigsProperties kafkaConfigs,
+        Supplier<LocalDate> currentDateSupplier
+    ) {
         Optional<String> rootsValue = confOption("recon.inputRoots", lookup);
         List<String> roots = rootsValue.isPresent()
             ? splitCsv(rootsValue.get())
@@ -60,7 +82,7 @@ public final class ConfigLoader {
             parseBoolean("recon.failOnGaps", true, lookup),
             parseNonNegativeLong("recon.missingOffsetsLimit", 1000L, lookup),
             parseBoolean("recon.exitOnCompletion", true, lookup),
-            loadSideTopicConfig(lookup)
+            loadSideTopicConfig(lookup, kafkaConfigs)
         );
     }
 
@@ -74,13 +96,28 @@ public final class ConfigLoader {
      *         is incomplete or unsupported
      */
     public static Optional<SideTopicConfig> loadSideTopicConfig(ConfLookup lookup) {
+        return loadSideTopicConfig(lookup, new KafkaConfigsProperties());
+    }
+
+    /**
+     * Loads optional side-topic reconciliation settings and validates the
+     * selected broker alias configuration.
+     *
+     * @param lookup configuration lookup source
+     * @param kafkaConfigs Spring-bound broker alias configuration
+     * @return side-topic configuration, or empty when no side-topic keys are set
+     * @throws com.reconciliation.kafka.support.ReconExit when side-topic config
+     *         is incomplete or unsupported
+     */
+    public static Optional<SideTopicConfig> loadSideTopicConfig(ConfLookup lookup, KafkaConfigsProperties kafkaConfigs) {
         Optional<String> sourceTopic = firstConfOption(lookup, "recon.sourceTopic", "recon.sideTopic.sourceTopic");
-        Optional<String> bootstrapServers = firstConfOption(
+        Optional<ResolvedConfValue> alias = firstConfValue(lookup, "recon.kafkaAlias", "recon.kafka.alias");
+        Optional<ResolvedConfValue> legacyBootstrapServers = sparkConfOnly(firstConfValue(
             lookup,
             "recon.kafkaBootstrapServers",
             "recon.kafka.bootstrap.servers",
             "recon.sideTopic.kafkaBootstrapServers"
-        );
+        ));
         Optional<String> canaryTopic = firstConfOption(lookup, "recon.canaryTopic", "recon.sideTopic.canaryTopic");
         Optional<String> deadLetterTopic = firstConfOption(
             lookup,
@@ -96,7 +133,8 @@ public final class ConfigLoader {
         );
 
         boolean anySideTopicConfig = sourceTopic.isPresent()
-            || bootstrapServers.isPresent()
+            || alias.isPresent()
+            || legacyBootstrapServers.isPresent()
             || canaryTopic.isPresent()
             || deadLetterTopic.isPresent()
             || rawStartingOffsets.isPresent();
@@ -108,8 +146,8 @@ public final class ConfigLoader {
         if (!sourceTopic.isPresent()) {
             missing.add("recon.sourceTopic");
         }
-        if (!bootstrapServers.isPresent()) {
-            missing.add("recon.kafkaBootstrapServers");
+        if (!alias.isPresent() && !legacyBootstrapServers.isPresent()) {
+            missing.add("recon.kafkaAlias");
         }
         if (!canaryTopic.isPresent() && !deadLetterTopic.isPresent()) {
             missing.add("one of recon.canaryTopic or recon.deadLetterTopic");
@@ -130,13 +168,77 @@ public final class ConfigLoader {
             );
         }
 
+        BrokerResolution broker = alias.isPresent()
+            ? resolveBrokerAlias(alias.get().value, kafkaConfigs)
+            : legacyBootstrapBroker(legacyBootstrapServers.get().value);
+
         return Optional.of(new SideTopicConfig(
             sourceTopic.get(),
-            bootstrapServers.get(),
+            broker.alias,
+            broker.conf,
             canaryTopic,
             deadLetterTopic,
             startingOffsets
         ));
+    }
+
+    private static Optional<ResolvedConfValue> sparkConfOnly(Optional<ResolvedConfValue> value) {
+        if (!value.isPresent()) {
+            return value;
+        }
+        return value.get().source.startsWith("application_yml:")
+            ? Optional.<ResolvedConfValue>empty()
+            : value;
+    }
+
+    private static BrokerResolution resolveBrokerAlias(String rawAlias, KafkaConfigsProperties kafkaConfigs) {
+        String alias = rawAlias == null ? "" : rawAlias.trim();
+        if (alias.isEmpty()) {
+            ReconReporter.stopNow(2, "Invalid side-topic config; recon.kafkaAlias is blank or whitespace");
+        }
+
+        if (!kafkaConfigs.hasBroker(alias)) {
+            ReconReporter.stopNow(
+                2,
+                "Unknown recon.kafkaAlias=" + alias
+                    + "; define kafka-configs.broker." + alias + ".conf in kafka-brokers.yml"
+                    + knownAliases(kafkaConfigs)
+            );
+        }
+
+        Map<String, String> conf = kafkaConfigs.normalizedConf(alias);
+        if (conf.isEmpty()) {
+            ReconReporter.stopNow(2, "Broker alias " + alias + " has empty kafka-configs.broker." + alias + ".conf");
+        }
+        if (!conf.containsKey("bootstrap.servers")) {
+            ReconReporter.stopNow(
+                2,
+                "Broker alias " + alias
+                    + " missing required kafka-configs.broker." + alias + ".conf[bootstrap.servers]"
+            );
+        }
+        return new BrokerResolution(Optional.of(alias), conf);
+    }
+
+    private static BrokerResolution legacyBootstrapBroker(String bootstrapServers) {
+        Map<String, String> conf = new LinkedHashMap<String, String>();
+        conf.put("bootstrap.servers", bootstrapServers.trim());
+        return new BrokerResolution(Optional.<String>empty(), conf);
+    }
+
+    private static String knownAliases(KafkaConfigsProperties kafkaConfigs) {
+        List<String> aliases = kafkaConfigs.brokerAliases();
+        return aliases.isEmpty() ? "" : "; known aliases=" + String.join(",", aliases);
+    }
+
+    private static final class BrokerResolution {
+        private final Optional<String> alias;
+        private final Map<String, String> conf;
+
+        private BrokerResolution(Optional<String> alias, Map<String, String> conf) {
+            this.alias = alias;
+            this.conf = conf;
+        }
     }
 
     /**

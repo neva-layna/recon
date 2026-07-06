@@ -95,9 +95,16 @@ write_yaml_side_config() {
   local missing_offsets_limit="${7:-1000}"
   local root
   local root_items=()
+  local broker_file
+
+  broker_file="$(dirname "$output_file")/kafka-brokers.yml"
 
   IFS=',' read -r -a root_items <<< "$roots"
   {
+    printf 'spring:\n'
+    printf '  config:\n'
+    printf '    import: "file:%s"\n' "$broker_file"
+    printf '\n'
     printf 'recon:\n'
     printf '  input-roots:\n'
     for root in "${root_items[@]}"; do
@@ -112,7 +119,7 @@ write_yaml_side_config() {
     printf '  missing-offsets-limit: %s\n' "$missing_offsets_limit"
     printf '  exit-on-completion: true\n'
     printf '  source-topic: "%s"\n' "$source_topic"
-    printf '  kafka-bootstrap-servers: "%s"\n' "$bootstrap_servers"
+    printf '  kafka-alias: main-kafka\n'
     if [[ -n "$canary_topic" ]]; then
       printf '  canary-topic: "%s"\n' "$canary_topic"
     fi
@@ -121,6 +128,16 @@ write_yaml_side_config() {
     fi
     printf '  side-topic-starting-offsets: earliest\n'
   } > "$output_file"
+
+  {
+    printf 'kafka-configs:\n'
+    printf '  broker:\n'
+    printf '    main-kafka:\n'
+    printf '      conf:\n'
+    printf '        "[bootstrap.servers]": "%s"\n' "$bootstrap_servers"
+    printf '        "[security.protocol]": PLAINTEXT\n'
+    printf '        "[max.poll.records]": 500\n'
+  } > "$broker_file"
 }
 
 is_true() {

@@ -54,8 +54,8 @@ public final class ApplicationYamlLookup implements ConfLookup {
         if ("recon.sourceTopic".equals(key)) {
             return clean(properties.getSourceTopic());
         }
-        if ("recon.kafkaBootstrapServers".equals(key)) {
-            return clean(properties.getKafkaBootstrapServers());
+        if ("recon.kafkaAlias".equals(key)) {
+            return raw(properties.getKafkaAlias());
         }
         if ("recon.canaryTopic".equals(key)) {
             return clean(properties.getCanaryTopic());
@@ -84,5 +84,9 @@ public final class ApplicationYamlLookup implements ConfLookup {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? Optional.<String>empty() : Optional.of(trimmed);
+    }
+
+    private Optional<String> raw(String value) {
+        return value == null ? Optional.<String>empty() : Optional.of(value);
     }
 }

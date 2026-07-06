@@ -172,7 +172,7 @@ public class KafkaOffsetGapCheckerTest {
             assertEquals(2, exit.code);
             assertTrue(exit.getMessage().contains("Incomplete side-topic config"));
             assertTrue(exit.getMessage().contains("recon.sourceTopic"));
-            assertTrue(exit.getMessage().contains("recon.kafkaBootstrapServers"));
+            assertTrue(exit.getMessage().contains("recon.kafkaAlias"));
         }
     }
 

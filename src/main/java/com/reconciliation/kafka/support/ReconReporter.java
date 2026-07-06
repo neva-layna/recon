@@ -66,6 +66,7 @@ public final class ReconReporter {
         info(ReconConstants.RECON_PREFIX + " recon.sideTopic.enabled=" + config.sideTopicConfig.isPresent());
         if (config.sideTopicConfig.isPresent()) {
             info(ReconConstants.RECON_PREFIX + " recon.sourceTopic=" + config.sideTopicConfig.get().sourceTopic);
+            info(ReconConstants.RECON_PREFIX + " recon.kafkaAlias=" + config.sideTopicConfig.get().kafkaAlias.orElse("<legacy-spark-conf-bootstrap>"));
             info(ReconConstants.RECON_PREFIX + " recon.kafkaBootstrapServers=" + config.sideTopicConfig.get().kafkaBootstrapServers);
             info(ReconConstants.RECON_PREFIX + " recon.canaryTopic=" + config.sideTopicConfig.get().canaryTopic.orElse("<none>"));
             info(ReconConstants.RECON_PREFIX + " recon.deadLetterTopic=" + config.sideTopicConfig.get().deadLetterTopic.orElse("<none>"));

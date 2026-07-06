@@ -62,9 +62,9 @@ public class ReconProperties {
      */
     private String sourceTopic;
     /**
-     * Kafka bootstrap server list used by Spark's Kafka reader.
+     * Broker alias used to select Kafka consumer settings.
      */
-    private String kafkaBootstrapServers;
+    private String kafkaAlias;
     /**
      * Optional canary side topic that may contain rerouted source records.
      */

@@ -12,6 +12,7 @@ import org.springframework.context.annotation.ComponentScan;
 
 import com.reconciliation.kafka.config.ApplicationYamlLookup;
 import com.reconciliation.kafka.config.ConfLookup;
+import com.reconciliation.kafka.config.KafkaConfigsProperties;
 import com.reconciliation.kafka.config.LayeredConfLookup;
 import com.reconciliation.kafka.config.ReconProperties;
 import com.reconciliation.kafka.config.SparkConfLookup;
@@ -23,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @SpringBootConfiguration(proxyBeanMethods = false)
 @ComponentScan(basePackages = "com.reconciliation.kafka")
-@EnableConfigurationProperties(ReconProperties.class)
+@EnableConfigurationProperties({ReconProperties.class, KafkaConfigsProperties.class})
 @Slf4j
 public class KafkaOffsetGapCheckerConfiguration {
     /**

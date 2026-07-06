@@ -64,24 +64,50 @@ only, is not a Spring Boot app, and does not read `application.yml`.
 | `recon.missingOffsetsLimit` | `1000` | Per-partition safety limit for materializing actual missing offset values in output. Set `0` to report only counts and mark gapped partitions as truncated. |
 | `recon.exitOnCompletion` | `true` | Call `System.exit` so automation does not remain in the interactive shell. |
 
-Java side-topic reconciliation adds these configs. In YAML, use the
-corresponding kebab-case names under `recon`, such as `source-topic`,
-`kafka-bootstrap-servers`, `canary-topic`, `dead-letter-topic`, and
-`side-topic-starting-offsets`. Each `recon.*` Spark conf spelling also has the
-corresponding `spark.recon.*` alias and overrides YAML.
+Java side-topic reconciliation adds these configs. In YAML, keep side-topic
+topic settings in `application.yml`, select broker settings with
+`recon.kafka-alias`, and import a separate `kafka-brokers.yml`:
+
+```yaml
+spring:
+  config:
+    import: "file:./kafka-brokers.yml"
+
+recon:
+  source-topic: orders
+  kafka-alias: main-kafka
+  canary-topic: orders-canary
+  dead-letter-topic: orders-dlq
+  side-topic-starting-offsets: earliest
+```
+
+```yaml
+kafka-configs:
+  broker:
+    main-kafka:
+      conf:
+        "[bootstrap.servers]": broker-a:9092,broker-b:9092
+        "[security.protocol]": PLAINTEXT
+        "[max.poll.records]": 500
+```
+
+Each `recon.*` Spark conf spelling also has the corresponding `spark.recon.*`
+alias and overrides YAML. Direct bootstrap servers are retained only as a
+legacy Spark-conf/wrapper override, not as the YAML-side side-topic key.
 
 | Key | Alias keys | Default | Meaning |
 | --- | --- | --- | --- |
 | `recon.sourceTopic` | `recon.sideTopic.sourceTopic` | required when side-topic config is present | Source Kafka topic identity used to match side-topic records. |
-| `recon.kafkaBootstrapServers` | `recon.kafka.bootstrap.servers`, `recon.sideTopic.kafkaBootstrapServers` | required when side-topic config is present | Kafka 3.x bootstrap servers for side-topic reads. |
+| `recon.kafkaAlias` | `recon.kafka.alias` | required for YAML side-topic config | Broker alias selected from `kafka-configs.broker.<alias>.conf`. |
+| `recon.kafkaBootstrapServers` | `recon.kafka.bootstrap.servers`, `recon.sideTopic.kafkaBootstrapServers` | legacy Spark-conf override only | Kafka 3.x bootstrap servers forwarded by wrappers or direct `--conf`; do not use this in YAML for the dynamic alias path. |
 | `recon.canaryTopic` | `recon.sideTopic.canaryTopic` | none | Optional canary/heartbeat topic containing Avro object-container payloads. |
 | `recon.deadLetterTopic` | `recon.deadletterTopic`, `recon.sideTopic.deadLetterTopic` | none | Optional dead-letter topic containing Avro object-container payloads. |
 | `recon.sideTopicStartingOffsets` | `recon.sideTopic.startingOffsets`, `recon.sideTopicReadBehavior` | `earliest` | Side-topic read start. `earliest` and `beginning` are accepted and both read from the beginning. |
 
 When any side-topic config is present, `recon.sourceTopic`,
-`recon.kafkaBootstrapServers`, and at least one of `recon.canaryTopic` or
-`recon.deadLetterTopic` are required. Partial side-topic config fails closed with
-exit code `2`.
+`recon.kafkaAlias` or a legacy Spark-conf bootstrap override, and at least one
+of `recon.canaryTopic` or `recon.deadLetterTopic` are required. Partial
+side-topic config fails closed with exit code `2`.
 
 The fixture generator uses these Spark conf keys:
 
@@ -286,8 +312,10 @@ rtk env \
   scripts/run_java_kafka_offset_gap_check_prod.sh
 ```
 
-The YAML must include `source-topic`, `kafka-bootstrap-servers`, and at least
-one of `canary-topic` or `dead-letter-topic` under `recon`.
+The YAML must include `spring.config.import: "file:./kafka-brokers.yml"`,
+`recon.kafka-alias`, `source-topic`, and at least one of `canary-topic` or
+`dead-letter-topic`. The imported broker file must define
+`kafka-configs.broker.<alias>.conf` with a usable `[bootstrap.servers]` entry.
 
 Use wrapper Spark-conf overrides for side-topic reconciliation:
 
@@ -326,7 +354,8 @@ rtk env \
   build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
 ```
 
-Direct Java `spark-submit` with Spark-conf overrides uses the same configs:
+Direct Java `spark-submit` with legacy Spark-conf bootstrap overrides uses the
+same configs:
 
 ```bash
 rtk spark-submit \

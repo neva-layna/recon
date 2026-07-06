@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.DataFrameReader;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
@@ -56,6 +57,7 @@ public final class SideTopicReconciler {
         ReconReporter.info(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_begin");
         ReconReporter.info(
             ReconConstants.RECON_PREFIX + " side_topic source_topic=" + sideTopicConfig.sourceTopic
+                + " kafka_alias=" + sideTopicConfig.kafkaAlias.orElse("<legacy-spark-conf-bootstrap>")
                 + " kafka_bootstrap_servers=" + sideTopicConfig.kafkaBootstrapServers
                 + " starting_offsets=" + sideTopicConfig.startingOffsets
                 + " canary_topic=" + sideTopicConfig.canaryTopic.orElse("<none>")
@@ -98,16 +100,11 @@ public final class SideTopicReconciler {
     ) {
         List<SideTopicRecord> decoded = new ArrayList<SideTopicRecord>();
         try {
-            Dataset<Row> rows = spark.read()
-                .format("kafka")
-                .option("kafka.bootstrap.servers", config.kafkaBootstrapServers)
-                .option("subscribe", topic)
-                .option("startingOffsets", config.startingOffsets)
-                .option("endingOffsets", "latest")
-                .option("failOnDataLoss", "true")
-                .option("kafka.request.timeout.ms", "10000")
-                .option("kafka.default.api.timeout.ms", "10000")
-                .load()
+            DataFrameReader reader = spark.read().format("kafka");
+            for (Map.Entry<String, String> entry : SideTopicReaderOptions.build(config, topic).entrySet()) {
+                reader = reader.option(entry.getKey(), entry.getValue());
+            }
+            Dataset<Row> rows = reader.load()
                 .select(col("topic"), col("partition"), col("offset"), col("value"));
 
             for (Row row : rows.collectAsList()) {
