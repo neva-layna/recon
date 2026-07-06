@@ -48,13 +48,13 @@ public final class SideTopicReconciler {
         GapAnalysisResult gaps
     ) {
         if (!config.sideTopicConfig.isPresent()) {
-            System.out.println(ReconConstants.RECON_PREFIX + " side_topic_reconciliation state=disabled");
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " side_topic_reconciliation state=disabled");
             return Optional.empty();
         }
 
         SideTopicConfig sideTopicConfig = config.sideTopicConfig.get();
-        System.out.println(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_begin");
-        System.out.println(
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_begin");
+        ReconReporter.info(
             ReconConstants.RECON_PREFIX + " side_topic source_topic=" + sideTopicConfig.sourceTopic
                 + " kafka_bootstrap_servers=" + sideTopicConfig.kafkaBootstrapServers
                 + " starting_offsets=" + sideTopicConfig.startingOffsets
@@ -76,7 +76,7 @@ public final class SideTopicReconciler {
             deadLetterRecords
         );
         printClassification(sideTopicConfig, classification);
-        System.out.println(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_end");
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_end");
         return Optional.of(classification);
     }
 
@@ -143,7 +143,7 @@ public final class SideTopicReconciler {
             );
         }
 
-        System.out.println(
+        ReconReporter.info(
             ReconConstants.RECON_PREFIX + " side_topic_read topic=" + topic
                 + " kind=" + kind.name().toLowerCase()
                 + " decoded_record_count=" + decoded.size()
@@ -161,13 +161,13 @@ public final class SideTopicReconciler {
         printBucket(classification.sourceTopic, "canary_explained", config.canaryTopic.orElse("<none>"), classification.canaryExplainedOffsets);
         printBucket(classification.sourceTopic, "dead_letter_explained", config.deadLetterTopic.orElse("<none>"), classification.deadLetterExplainedOffsets);
         printBucket(classification.sourceTopic, "unresolved", "<none>", classification.unresolvedOffsets);
-        System.out.println(
+        ReconReporter.info(
             ReconConstants.RECON_PREFIX + " side_topic_dead_letter_fields"
                 + " failure_event_id_count=" + classification.deadLetterFailureEventIdCount
                 + " reason_msg_count=" + classification.deadLetterReasonMsgCount
                 + " exception_count=" + classification.deadLetterExceptionCount
         );
-        System.out.println(
+        ReconReporter.info(
             ReconConstants.RECON_PREFIX + " side_topic_summary source_topic=" + classification.sourceTopic
                 + " raw_gap_partition_count=" + classification.rawGapPartitionCount
                 + " bounded_missing_offset_count=" + classification.boundedMissingOffsetCount
@@ -194,7 +194,7 @@ public final class SideTopicReconciler {
         for (Integer partition : partitions) {
             List<Long> offsets = new ArrayList<Long>(offsetsByPartition.get(partition));
             Collections.sort(offsets);
-            System.out.println(
+            ReconReporter.info(
                 ReconConstants.RECON_PREFIX + " side_topic_bucket=" + bucket
                     + " source_topic=" + sourceTopic
                     + " side_topic=" + sideTopic

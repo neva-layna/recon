@@ -1,20 +1,42 @@
 package com.reconciliation.kafka.sidetopic;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.reconciliation.kafka.config.SideTopicConfig;
+import com.reconciliation.kafka.support.ReconReporter;
 
 import static org.junit.Assert.assertTrue;
 
 public class SideTopicReconcilerTest {
+    private Logger reporterLogger;
+    private ListAppender<ILoggingEvent> appender;
+
+    @Before
+    public void attachLogCapture() {
+        reporterLogger = (Logger) LoggerFactory.getLogger(ReconReporter.class);
+        appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        reporterLogger.addAppender(appender);
+    }
+
+    @After
+    public void detachLogCapture() {
+        reporterLogger.detachAppender(appender);
+        appender.stop();
+    }
+
     @Test
     public void printsMachineReadableSideTopicBucketsAndSummary() throws Exception {
         SideTopicConfig config = new SideTopicConfig(
@@ -48,16 +70,9 @@ public class SideTopicReconcilerTest {
             true
         );
 
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        PrintStream originalOut = System.out;
-        try {
-            System.setOut(new PrintStream(output, true, "UTF-8"));
-            SideTopicReconciler.printClassification(config, classification);
-        } finally {
-            System.setOut(originalOut);
-        }
+        SideTopicReconciler.printClassification(config, classification);
 
-        String text = output.toString("UTF-8");
+        String text = loggedText();
         assertTrue(text.contains(
             "[recon] side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=[1]"
         ));
@@ -74,5 +89,13 @@ public class SideTopicReconcilerTest {
         assertTrue(text.contains(
             "[recon] side_topic_dead_letter_fields failure_event_id_count=1 reason_msg_count=1 exception_count=1"
         ));
+    }
+
+    private String loggedText() {
+        StringBuilder builder = new StringBuilder();
+        for (ILoggingEvent event : appender.list) {
+            builder.append(event.getFormattedMessage()).append('\n');
+        }
+        return builder.toString();
     }
 }

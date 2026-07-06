@@ -1,0 +1,4 @@
+recon:
+  input-roots:
+    - /yaml/root-a
+  canary-topic: yaml-orders-canary

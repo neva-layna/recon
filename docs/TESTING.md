@@ -43,6 +43,39 @@ The matrix file is written to:
 
 All scenario rows should have `verdict` equal to `pass`.
 
+## YAML And Override Coverage
+
+The Java checker is a Spring Boot 2.7.18 application, so unit and smoke
+coverage must include `application.yml` binding as well as Spark-conf override
+compatibility. The YAML tests cover base parquet-gap fields, side-topic fields,
+defaults, invalid typed values, incomplete side-topic config, unsupported
+side-topic offsets, and precedence where `recon.*` or `spark.recon.*` Spark conf
+values override YAML.
+
+For real-surface YAML checks, submit the same jar with Spring config
+environment:
+
+```bash
+rtk env \
+  SPRING_CONFIG_LOCATION=file:/tmp/recon/application.yml \
+  spark-submit \
+  --class com.reconciliation.kafka.KafkaOffsetGapChecker \
+  --master local[*] \
+  --conf 'spark.sql.session.timeZone=UTC' \
+  build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+```
+
+Use the wrapper path for the same YAML-first flow:
+
+```bash
+rtk env \
+  APPLICATION_YML=/tmp/recon/application.yml \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
+```
+
+To prove override compatibility, add positional roots or `INPUT_ROOTS_CSV` and
+the wrapper will forward `spark.recon.*` keys over the YAML values.
+
 ## Spark+Kafka Docker Side-Topic Validation
 
 Run this matrix when validating the Java side-topic feature. It exists because
@@ -244,9 +277,10 @@ Run Java unit tests with:
 rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew test
 ```
 
-The tests cover configuration resolution, defaults, invalid booleans, missing
-roots, and small formatting helpers. They do not replace the Spark fixture
-matrix.
+The tests cover Spring Boot YAML binding, Spark conf precedence, configuration
+resolution, defaults, invalid booleans/numbers/run dates, missing roots,
+side-topic config validation, and small formatting helpers. They do not replace
+the Spark fixture matrix.
 
 ## Scala Oracle Check
 

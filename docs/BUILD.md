@@ -1,11 +1,16 @@
 # Build
 
 This project contains a Gradle Java port of the Kafka offset gap checker.
-The production artifact is a jar submitted with Spark 3.5.x.
+The production artifact is a Spring Boot 2.7.18 Java application jar submitted
+with Spark 3.5.x.
 
 ## Requirements
 
 - Java source and bytecode target: Java 8.
+- Java application framework: Spring Boot 2.7.18.
+- Operator configuration: YAML-first `application.yml` under the `recon`
+  prefix, with Spark conf overrides preserved.
+- Logging: SLF4J with Spring Boot's default Logback backend.
 - Spark runtime: Spark 3.5.x only.
 - Spark dependency ABI: Scala 2.12 only.
 - Side-topic broker/runtime validation: Kafka 3.x only.
@@ -21,13 +26,15 @@ brokers or fixtures.
 | `build.gradle` | Gradle Java/application build. |
 | `settings.gradle` | Gradle project name. |
 | `src/main/java/com/reconciliation/kafka/KafkaOffsetGapChecker.java` | Java Spark checker public entrypoint. |
-| `src/main/java/com/reconciliation/kafka/config/` | Configuration loading and Spark conf lookup. |
+| `src/main/java/com/reconciliation/kafka/config/` | YAML binding plus Spark conf override lookup. |
 | `src/main/java/com/reconciliation/kafka/scan/` | Partition discovery. |
 | `src/main/java/com/reconciliation/kafka/metadata/` | Parquet read, metadata parsing, normalized-offset persistence. |
 | `src/main/java/com/reconciliation/kafka/analytics/` | Offset gap analytics and missing-offset reports. |
 | `src/main/java/com/reconciliation/kafka/sidetopic/` | Optional Kafka side-topic Avro decode, matching, and reporting. |
 | `src/main/java/com/reconciliation/kafka/model/` | Data carrier classes. |
 | `src/main/java/com/reconciliation/kafka/support/` | Shared reporting, constants, exits, and row helpers. |
+| `src/main/resources/application.yml` | Commented YAML sample covering base parquet-gap and side-topic config. |
+| `src/main/resources/logback.xml` | `%msg%n` Logback layout that keeps `[recon]` lines parseable. |
 | `src/test/java/com/reconciliation/kafka/KafkaOffsetGapCheckerTest.java` | Unit tests for config parsing and small helpers. |
 | `scripts/run_java_kafka_offset_gap_check_prod.sh` | Production `spark-submit` wrapper. |
 | `scripts/run_java_kafka_offset_gap_fixture_checks.sh` | Local Java fixture validation runner. |
@@ -62,6 +69,10 @@ Main-Class: com.reconciliation.kafka.KafkaOffsetGapChecker
 The production wrapper still passes the main class explicitly to
 `spark-submit`.
 
+The jar is packaged with application runtime dependencies, including Spring
+Boot 2.7.18, Spring Boot's default Logback stack, and Avro. Spark SQL remains
+`compileOnly` because the Spark 3.5.x runtime supplies Spark jars.
+
 ## Run Unit Tests
 
 ```bash
@@ -83,8 +94,7 @@ After building, application classes should have classfile major version `52`.
 One direct check is:
 
 ```bash
-javap -verbose build/classes/java/main/com/reconciliation/kafka/KafkaOffsetGapChecker.class \
-  | grep 'major version'
+rtk javap -verbose build/classes/java/main/com/reconciliation/kafka/KafkaOffsetGapChecker.class
 ```
 
 Expected:
@@ -99,10 +109,15 @@ The Spark dependency is intentionally `compileOnly` for production because
 Spark supplies its own jars at runtime:
 
 ```groovy
+implementation 'org.springframework.boot:spring-boot-starter:2.7.18'
 compileOnly 'org.apache.spark:spark-sql_2.12:3.5.6'
 implementation 'org.apache.avro:avro:1.11.4'
 testImplementation 'org.apache.spark:spark-sql_2.12:3.5.6'
 ```
+
+Spring Boot's default logging starter supplies SLF4J 1.7 and Logback. Product
+reporting uses that SLF4J/Logback path and preserves exact `[recon]` message
+payloads for existing parsers.
 
 The Java code reads Kafka through Spark's `format("kafka")` datasource at
 runtime. Side-topic runs must make the Spark 3.5 Kafka connector available to
@@ -131,12 +146,12 @@ non-3.x Kafka image tags.
 ## Clean Build Outputs
 
 ```bash
-./gradlew clean
+rtk ./gradlew clean
 ```
 
 Local Spark fixture evidence is normally written under `.recon-local/`; remove it
 when you want a fresh validation run:
 
 ```bash
-rm -rf .recon-local
+rtk rm -rf .recon-local
 ```

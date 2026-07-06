@@ -1,0 +1,18 @@
+recon:
+  input-roots:
+    - /yaml/root-a
+    - /yaml/root-b
+  metadata-column: yaml_meta
+  date-partition-column: business_date
+  run-date: "2026-07-05"
+  normalized-offsets-path: file:///tmp/yaml-normalized
+  normalized-offsets-overwrite: false
+  fail-on-invalid-rows: false
+  fail-on-gaps: false
+  missing-offsets-limit: 7
+  exit-on-completion: false
+  source-topic: yaml-orders
+  kafka-bootstrap-servers: yaml-broker:9092
+  canary-topic: yaml-orders-canary
+  dead-letter-topic: yaml-orders-dlq
+  side-topic-starting-offsets: beginning

@@ -75,7 +75,7 @@ public final class MetadataNormalizer {
      */
     public static NormalizeResult normalizeOffsets(Dataset<Row> input, CheckerConfig config) {
         long inputRows = input.count();
-        System.out.println(ReconConstants.RECON_PREFIX + " eligible_row_count=" + inputRows);
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " eligible_row_count=" + inputRows);
 
         if (inputRows == 0L) {
             ReconReporter.stopNow(2, "Eligible parquet data contained zero rows");
@@ -141,9 +141,9 @@ public final class MetadataNormalizer {
             countWhen(validRow, "valid_offset_row_count")
         );
 
-        System.out.println(ReconConstants.RECON_PREFIX + " metadata_quality_begin");
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " metadata_quality_begin");
         quality.show(false);
-        System.out.println(ReconConstants.RECON_PREFIX + " metadata_quality_end");
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " metadata_quality_end");
 
         Row qualityRow = quality.collectAsList().get(0);
         long invalidRows = RowValues.getLong(qualityRow, "invalid_row_count");
@@ -200,23 +200,23 @@ public final class MetadataNormalizer {
      */
     public static Dataset<Row> persistIfConfigured(SparkSession spark, Dataset<Row> normalized, CheckerConfig config) {
         if (!config.normalizedOffsetsPath.isPresent()) {
-            System.out.println(ReconConstants.RECON_PREFIX + " normalized_offsets_persisted=false");
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " normalized_offsets_persisted=false");
             return normalized;
         }
 
         String path = config.normalizedOffsetsPath.get();
         SaveMode mode = config.normalizedOffsetsOverwrite ? SaveMode.Overwrite : SaveMode.ErrorIfExists;
-        System.out.println(ReconConstants.RECON_PREFIX + " normalized_offsets_persisted=true path=" + path + " mode=" + mode);
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " normalized_offsets_persisted=true path=" + path + " mode=" + mode);
         try {
             normalized.write().mode(mode).parquet(path);
-            System.out.println(ReconConstants.RECON_PREFIX + " normalized_offsets_write_complete path=" + path);
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " normalized_offsets_write_complete path=" + path);
         } catch (Exception error) {
             ReconReporter.stopNow(2, "Failed to write normalized offsets to " + path + ": " + error.getClass().getSimpleName() + ": " + error.getMessage());
         }
 
         try {
             Dataset<Row> persisted = spark.read().parquet(path);
-            System.out.println(ReconConstants.RECON_PREFIX + " normalized_offsets_read_complete path=" + path);
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " normalized_offsets_read_complete path=" + path);
             return persisted.select(
                 col("partition").cast(DataTypes.IntegerType).as("partition"),
                 col("offset").cast(DataTypes.LongType).as("offset"),

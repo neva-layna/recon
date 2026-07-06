@@ -106,6 +106,21 @@ public class KafkaOffsetGapCheckerTest {
     }
 
     @Test
+    public void springApplicationRunnerCapturesPassExitClass() throws Exception {
+        assertApplicationRunnerExitCode(0);
+    }
+
+    @Test
+    public void springApplicationRunnerCapturesDataQualityFailExitClass() throws Exception {
+        assertApplicationRunnerExitCode(1);
+    }
+
+    @Test
+    public void springApplicationRunnerCapturesConfigInputFailExitClass() throws Exception {
+        assertApplicationRunnerExitCode(2);
+    }
+
+    @Test
     public void rejectsInvalidBoolean() {
         Map<String, String> conf = new HashMap<String, String>();
         conf.put("recon.failOnGaps", "maybe");
@@ -298,6 +313,21 @@ public class KafkaOffsetGapCheckerTest {
     public void formatsSideTopicOffsetsWithoutSpaces() {
         assertEquals("[4,5]", SideTopicReconciler.formatOffsets(Arrays.asList(4L, 5L)));
         assertEquals("[]", SideTopicReconciler.formatOffsets(Collections.<Long>emptyList()));
+    }
+
+    private static void assertApplicationRunnerExitCode(final int code) throws Exception {
+        KafkaOffsetGapApplicationRunner runner = new KafkaOffsetGapApplicationRunner(new CheckerJob() {
+            @Override
+            public void run() {
+                throw new ReconExit(code, "exit-" + code, true);
+            }
+        });
+
+        runner.run(null);
+
+        assertTrue(runner.requestedExit().isPresent());
+        assertEquals(code, runner.requestedExit().get().code);
+        assertTrue(runner.requestedExit().get().exitJvm);
     }
 
     private static Supplier<LocalDate> fixedDate(final String date) {

@@ -8,9 +8,11 @@ or more root directories. It is implemented in two forms:
 - `src/main/java/com/reconciliation/kafka/`: Java Spark SQL/DataFrame port
   intended for `spark-submit`.
 
-The Java port is the production artifact for new deployments.
-The optional canary/dead-letter side-topic reconciliation exists only in the
-Java `spark-submit` checker.
+The Java port is the production artifact for new deployments. It is a Spring
+Boot 2.7.18 application that binds YAML under the `recon` prefix, preserves
+Spark conf overrides, and reports through SLF4J with Spring Boot's default
+Logback backend. The optional canary/dead-letter side-topic reconciliation
+exists only in the Java `spark-submit` checker.
 
 ## Runtime Model
 
@@ -20,25 +22,31 @@ operator
     -> spark-submit
       -> recon-kafka-offset-gap-checker-1.0.0.jar
         -> KafkaOffsetGapChecker.main
+          -> SpringApplication
+          -> ApplicationRunner
+          -> Spring-owned SparkSession
           -> Spark SQL/DataFrame jobs
-          -> [recon] stdout/stderr result lines
+          -> SLF4J/Logback [recon] result lines
 ```
 
-The wrapper assembles Spark conf keys and submits the Java main class:
+The wrapper can submit a YAML-first run by passing Spring Boot config
+environment, or a Spark-conf override run by assembling `spark.recon.*` keys. In
+both cases it submits the Java main class:
 
 ```text
 com.reconciliation.kafka.KafkaOffsetGapChecker
 ```
 
-Spark supplies the runtime Spark jars. The checker jar is intentionally not a
-fat jar.
+Spark supplies the runtime Spark jars. The checker jar includes application
+runtime dependencies such as Spring Boot and Avro, but not Spark SQL. Side-topic
+runs add the Spark Kafka connector as a Spark package.
 
 ## Java Packages
 
 | Package | Responsibility |
 | --- | --- |
 | `com.reconciliation.kafka` | Public `KafkaOffsetGapChecker` entrypoint and high-level orchestration. |
-| `com.reconciliation.kafka.config` | `recon.*` / `spark.recon.*` config resolution, validation, and Spark conf lookup. |
+| `com.reconciliation.kafka.config` | YAML binding, `recon.*` / `spark.recon.*` override resolution, validation, and Spark conf lookup. |
 | `com.reconciliation.kafka.scan` | Immediate child directory scan, run-date skip, scan reporting. |
 | `com.reconciliation.kafka.metadata` | Parquet read, metadata JSON parsing, invalid-row counts, optional normalized parquet persistence. |
 | `com.reconciliation.kafka.analytics` | Distinct-offset analytics, gap stats, bounded missing-offset materialization. |
@@ -83,26 +91,28 @@ The checker normalizes valid rows to:
 
 ## Processing Pipeline
 
-1. `config.ConfigLoader` resolves configuration from `recon.*` and `spark.recon.*`
-   Spark conf keys.
-2. `support.ReconReporter` prints resolved configuration as `[recon]` lines.
-3. `scan.PartitionScanner` scans immediate child paths under each input root.
-4. `scan.PartitionScanner` skips the configured run-date partition and collects
+1. Spring Boot 2.7.18 binds `application.yml` values under the `recon` prefix.
+2. `config.ConfigLoader` resolves Spark conf override keys from `recon.*` and
+   `spark.recon.*`, then falls back to YAML values.
+3. `support.ReconReporter` reports resolved configuration as `[recon]` lines
+   through SLF4J/Logback.
+4. `scan.PartitionScanner` scans immediate child paths under each input root.
+5. `scan.PartitionScanner` skips the configured run-date partition and collects
    eligible old partitions.
-5. `metadata.MetadataNormalizer` reads all eligible parquet paths as one DataFrame.
-6. `metadata.MetadataNormalizer` parses metadata JSON and classifies invalid rows.
-7. `metadata.MetadataNormalizer` optionally persists normalized offsets to parquet and
+6. `metadata.MetadataNormalizer` reads all eligible parquet paths as one DataFrame.
+7. `metadata.MetadataNormalizer` parses metadata JSON and classifies invalid rows.
+8. `metadata.MetadataNormalizer` optionally persists normalized offsets to parquet and
    reads them back.
-8. `analytics.OffsetAnalytics` deduplicates `(partition, offset)` pairs for analytics.
-9. `analytics.OffsetAnalytics` computes per-partition min/max/span/expected/missing counts.
-10. `analytics.OffsetAnalytics` materializes bounded missing offset values per partition.
-11. If configured, `sidetopic.SideTopicReconciler` reads Kafka 3.x canary and
+9. `analytics.OffsetAnalytics` deduplicates `(partition, offset)` pairs for analytics.
+10. `analytics.OffsetAnalytics` computes per-partition min/max/span/expected/missing counts.
+11. `analytics.OffsetAnalytics` materializes bounded missing offset values per partition.
+12. If configured, `sidetopic.SideTopicReconciler` reads Kafka 3.x canary and
     dead-letter topics through the Spark Kafka source.
-12. `sidetopic.SideTopicReconciler` decodes Avro object-container payloads and
+13. `sidetopic.SideTopicReconciler` decodes Avro object-container payloads and
     buckets materialized missing offsets as canary-explained,
     dead-letter-explained, or unresolved.
-13. `support.ReconReporter` prints the final `RESULT`.
-14. `KafkaOffsetGapChecker` exits with code `0`, `1`, or `2`.
+14. `support.ReconReporter` prints the final `RESULT`.
+15. `KafkaOffsetGapChecker` exits with code `0`, `1`, or `2`.
 
 ## Gap Algorithm
 
@@ -131,18 +141,33 @@ partition. When the true missing count exceeds the limit, the checker prints
 | 1 | Data-quality failure | Gaps or invalid metadata rows when the corresponding fail flag is true. |
 | 2 | Configuration/input failure | Missing roots, bad config values, no eligible partitions, empty readable parquet, missing metadata column, zero valid offsets, cache write/read failure. |
 
-## Configuration Boundary
+## Java Configuration Boundary
 
-The checker reads Spark conf keys only. It supports both canonical and alias
-forms:
+The Java `spark-submit` checker is YAML-first. It reads Spring Boot
+`application.yml` values under `recon`, for example:
+
+```yaml
+recon:
+  input-roots:
+    - hdfs:///warehouse/topic/root-a
+  run-date: "2026-07-02"
+```
+
+Spark conf remains the compatibility and override layer. The Java checker
+supports both canonical and alias forms:
 
 ```text
 recon.inputRoots
 spark.recon.inputRoots
 ```
 
-The alias form is preferred in wrappers because some launchers preserve only
+If a value exists in both YAML and Spark conf, the Spark conf value wins. The
+alias form is preferred in wrappers because some launchers preserve only
 `spark.*` keys.
+
+The Scala `scripts/check_kafka_offset_gaps.scala` checker remains a separate
+Spark 3.5 `spark-shell -i` script. It is not Spring Boot based, does not bind
+`application.yml`, and does not read Kafka side topics.
 
 ## Side-Topic Boundary
 

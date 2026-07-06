@@ -6,6 +6,13 @@ plugins {
 group = 'com.reconciliation'
 version = '1.0.0'
 
+ext {
+    springBootVersion = '2.7.18'
+    lombokVersion = '1.18.32'
+    sparkVersion = '3.5.6'
+    scalaBinaryVersion = '2.12'
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
@@ -16,10 +23,26 @@ application {
 }
 
 dependencies {
+    implementation "org.springframework.boot:spring-boot-starter:${springBootVersion}"
     implementation 'org.apache.avro:avro:1.11.4'
-    compileOnly 'org.apache.spark:spark-sql_2.12:3.5.6'
-    testImplementation 'org.apache.spark:spark-sql_2.12:3.5.6'
+    compileOnly "org.apache.spark:spark-sql_${scalaBinaryVersion}:${sparkVersion}"
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    testImplementation "org.apache.spark:spark-sql_${scalaBinaryVersion}:${sparkVersion}"
+    testImplementation "org.springframework.boot:spring-boot-test:${springBootVersion}"
     testImplementation 'junit:junit:4.13.2'
+}
+
+configurations.configureEach {
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j2-impl'
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.slf4j' && details.requested.name in ['slf4j-api', 'jul-to-slf4j', 'jcl-over-slf4j']) {
+            details.useVersion '1.7.36'
+            details.because 'Spring Boot 2.7 default Logback uses the SLF4J 1.7 binding API'
+        }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -33,9 +56,64 @@ tasks.withType(Test).configureEach {
     useJUnit()
 }
 
+def mergedSpringFactoriesFile = layout.buildDirectory.file('generated/springFactories/META-INF/spring.factories')
+
+tasks.register('mergeSpringFactories') {
+    outputs.file(mergedSpringFactoriesFile)
+    doLast {
+        Map<String, LinkedHashSet<String>> merged = new LinkedHashMap<String, LinkedHashSet<String>>()
+        configurations.runtimeClasspath.resolve().each { artifact ->
+            if (!artifact.name.endsWith('.jar')) {
+                return
+            }
+            zipTree(artifact).matching { include 'META-INF/spring.factories' }.files.each { factoriesFile ->
+                Properties properties = new Properties()
+                factoriesFile.withInputStream { stream -> properties.load(stream) }
+                properties.each { key, value ->
+                    String propertyName = key.toString()
+                    if (!merged.containsKey(propertyName)) {
+                        merged[propertyName] = new LinkedHashSet<String>()
+                    }
+                    value.toString().split(',').each { item ->
+                        String trimmed = item.trim()
+                        if (!trimmed.isEmpty()) {
+                            merged[propertyName].add(trimmed)
+                        }
+                    }
+                }
+            }
+        }
+
+        File output = mergedSpringFactoriesFile.get().asFile
+        output.parentFile.mkdirs()
+        output.withWriter('UTF-8') { writer ->
+            merged.each { key, values ->
+                writer << key << '=\\\n'
+                int index = 0
+                values.each { value ->
+                    index++
+                    writer << value
+                    writer << (index < values.size() ? ',\\\n' : '\n\n')
+                }
+            }
+        }
+    }
+}
+
 jar {
+    dependsOn tasks.named('mergeSpringFactories')
     archiveBaseName = 'recon-kafka-offset-gap-checker'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes 'Main-Class': application.mainClass.get()
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+    exclude 'META-INF/spring.factories'
+    exclude 'META-INF/versions/**', 'module-info.class'
+    from(mergedSpringFactoriesFile) {
+        into 'META-INF'
     }
 }

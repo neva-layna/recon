@@ -1,0 +1,7 @@
+recon:
+  input-roots:
+    - /yaml/root-a
+  source-topic: yaml-orders
+  kafka-bootstrap-servers: yaml-broker:9092
+  canary-topic: yaml-orders-canary
+  side-topic-starting-offsets: latest

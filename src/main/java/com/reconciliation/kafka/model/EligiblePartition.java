@@ -2,9 +2,12 @@ package com.reconciliation.kafka.model;
 
 import java.time.LocalDate;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * Eligible parquet partition directory selected for offset analysis.
  */
+@RequiredArgsConstructor
 public final class EligiblePartition implements Comparable<EligiblePartition> {
     /**
      * Configured input root that contained the partition.
@@ -18,19 +21,6 @@ public final class EligiblePartition implements Comparable<EligiblePartition> {
      * Full filesystem path to the partition directory.
      */
     public final String path;
-
-    /**
-     * Creates an eligible partition record.
-     *
-     * @param root configured input root
-     * @param date parsed partition date
-     * @param path full partition path
-     */
-    public EligiblePartition(String root, LocalDate date, String path) {
-        this.root = root;
-        this.date = date;
-        this.path = path;
-    }
 
     /**
      * Orders partitions by date and then by path for stable scan output.

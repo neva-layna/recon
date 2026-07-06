@@ -1,0 +1,29 @@
+# Sample YAML configuration for the Java spark-submit checker.
+# The checker is a Spring Boot 2.7.18 application. YAML under `recon` is the
+# preferred operator config source; Spark conf values (`recon.*` and
+# `spark.recon.*`) override these settings.
+#
+# Base parquet-gap configuration:
+# recon:
+#   input-roots:
+#     - hdfs:///warehouse/orders/root-a
+#     - hdfs:///warehouse/orders/root-b
+#   metadata-column: cactus__metadata
+#   date-partition-column: timestampcolumn
+#   run-date: "2026-07-02"
+#   normalized-offsets-path: hdfs:///tmp/recon-normalized-orders
+#   normalized-offsets-overwrite: true
+#   fail-on-invalid-rows: true
+#   fail-on-gaps: true
+#   missing-offsets-limit: 1000
+#   exit-on-completion: true
+#
+# Optional Java-only Kafka 3.x side-topic reconciliation settings. Keep these
+# under the same `recon` block when canary/dead-letter topics explain missing
+# parquet offsets. The Scala spark-shell checker does not read these settings.
+#
+#   source-topic: orders
+#   kafka-bootstrap-servers: broker-a:9092,broker-b:9092
+#   canary-topic: orders-canary
+#   dead-letter-topic: orders-dlq
+#   side-topic-starting-offsets: earliest

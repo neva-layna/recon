@@ -118,28 +118,28 @@ public final class PartitionScanner {
      * @param scans root scan results to print
      */
     public static void printScan(List<RootScan> scans) {
-        System.out.println(ReconConstants.RECON_PREFIX + " partition_scan_begin");
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_scan_begin");
         for (RootScan scan : scans) {
-            System.out.println(ReconConstants.RECON_PREFIX + " root=" + scan.root);
-            System.out.println(ReconConstants.RECON_PREFIX + " root=" + scan.root + " eligible_count=" + scan.eligible.size());
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " root=" + scan.root);
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " root=" + scan.root + " eligible_count=" + scan.eligible.size());
             for (EligiblePartition item : scan.eligible) {
-                System.out.println(
+                ReconReporter.info(
                     ReconConstants.RECON_PREFIX + " eligible_path root=" + scan.root
                         + " date=" + item.date.format(ReconConstants.DATE_FORMATTER)
                         + " path=" + item.path
                 );
             }
             for (String path : scan.skippedRunDate) {
-                System.out.println(ReconConstants.RECON_PREFIX + " skipped_run_date_path root=" + scan.root + " path=" + path);
+                ReconReporter.info(ReconConstants.RECON_PREFIX + " skipped_run_date_path root=" + scan.root + " path=" + path);
             }
             for (String path : scan.ignoredInvalidDate) {
-                System.out.println(ReconConstants.RECON_PREFIX + " ignored_invalid_date_path root=" + scan.root + " path=" + path);
+                ReconReporter.info(ReconConstants.RECON_PREFIX + " ignored_invalid_date_path root=" + scan.root + " path=" + path);
             }
             for (String path : scan.ignoredNonMatching) {
-                System.out.println(ReconConstants.RECON_PREFIX + " ignored_non_matching_path root=" + scan.root + " path=" + path);
+                ReconReporter.info(ReconConstants.RECON_PREFIX + " ignored_non_matching_path root=" + scan.root + " path=" + path);
             }
         }
-        System.out.println(ReconConstants.RECON_PREFIX + " partition_scan_end");
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_scan_end");
     }
 
     /**

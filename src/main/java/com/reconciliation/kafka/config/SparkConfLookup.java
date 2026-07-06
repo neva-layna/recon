@@ -7,26 +7,19 @@ import java.util.Optional;
 
 import org.apache.spark.sql.SparkSession;
 
+import lombok.RequiredArgsConstructor;
 import scala.Option;
 
 /**
  * Configuration lookup backed by Spark runtime conf, SparkConf, and the
  * submitted Java command line.
  */
+@RequiredArgsConstructor
 public final class SparkConfLookup implements ConfLookup {
     /**
      * Active Spark session used for runtime and SparkConf configuration lookups.
      */
     private final SparkSession spark;
-
-    /**
-     * Creates a lookup for the active Spark session.
-     *
-     * @param spark Spark session whose configuration is queried
-     */
-    public SparkConfLookup(SparkSession spark) {
-        this.spark = spark;
-    }
 
     /**
      * Resolves a key from runtime SQL conf, SparkConf, then sun.java.command

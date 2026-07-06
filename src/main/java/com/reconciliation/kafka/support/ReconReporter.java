@@ -2,16 +2,47 @@ package com.reconciliation.kafka.support;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.reconciliation.kafka.config.CheckerConfig;
 
 /**
  * Emits structured reconciliation status lines and final result signals.
  */
 public final class ReconReporter {
+    private static final Logger LOG = LoggerFactory.getLogger(ReconReporter.class);
+    private static final boolean LOGBACK_ACTIVE = LoggerFactory.getILoggerFactory()
+        .getClass()
+        .getName()
+        .startsWith("ch.qos.logback.");
+
     /**
      * Prevents construction of the reporting utility.
      */
     private ReconReporter() {
+    }
+
+    /**
+     * Emits one stable operator-facing info line through SLF4J.
+     *
+     * @param message full message text
+     */
+    public static void info(String message) {
+        LOG.info(parseable(message));
+    }
+
+    /**
+     * Emits one stable operator-facing error line through SLF4J.
+     *
+     * @param message full message text
+     */
+    public static void error(String message) {
+        LOG.error(parseable(message));
+    }
+
+    private static String parseable(String message) {
+        return LOGBACK_ACTIVE ? message : System.lineSeparator() + message;
     }
 
     /**
@@ -20,27 +51,27 @@ public final class ReconReporter {
      * @param config resolved configuration to print
      */
     public static void printConfig(CheckerConfig config) {
-        System.out.println(ReconConstants.RECON_PREFIX + " resolved_configuration_begin");
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.inputRoots=" + String.join(",", config.inputRoots));
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.metadataColumn=" + config.metadataColumn);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.datePartitionColumn=" + config.datePartitionColumn);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.runDate=" + config.runDate.format(ReconConstants.DATE_FORMATTER));
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.runDateSource=" + config.runDateSource);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsPath=" + config.normalizedOffsetsPath.orElse("<none>"));
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsOverwrite=" + config.normalizedOffsetsOverwrite);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.failOnInvalidRows=" + config.failOnInvalidRows);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.failOnGaps=" + config.failOnGaps);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.missingOffsetsLimit=" + config.missingOffsetsLimit);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.exitOnCompletion=" + config.exitOnCompletion);
-        System.out.println(ReconConstants.RECON_PREFIX + " recon.sideTopic.enabled=" + config.sideTopicConfig.isPresent());
+        info(ReconConstants.RECON_PREFIX + " resolved_configuration_begin");
+        info(ReconConstants.RECON_PREFIX + " recon.inputRoots=" + String.join(",", config.inputRoots));
+        info(ReconConstants.RECON_PREFIX + " recon.metadataColumn=" + config.metadataColumn);
+        info(ReconConstants.RECON_PREFIX + " recon.datePartitionColumn=" + config.datePartitionColumn);
+        info(ReconConstants.RECON_PREFIX + " recon.runDate=" + config.runDate.format(ReconConstants.DATE_FORMATTER));
+        info(ReconConstants.RECON_PREFIX + " recon.runDateSource=" + config.runDateSource);
+        info(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsPath=" + config.normalizedOffsetsPath.orElse("<none>"));
+        info(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsOverwrite=" + config.normalizedOffsetsOverwrite);
+        info(ReconConstants.RECON_PREFIX + " recon.failOnInvalidRows=" + config.failOnInvalidRows);
+        info(ReconConstants.RECON_PREFIX + " recon.failOnGaps=" + config.failOnGaps);
+        info(ReconConstants.RECON_PREFIX + " recon.missingOffsetsLimit=" + config.missingOffsetsLimit);
+        info(ReconConstants.RECON_PREFIX + " recon.exitOnCompletion=" + config.exitOnCompletion);
+        info(ReconConstants.RECON_PREFIX + " recon.sideTopic.enabled=" + config.sideTopicConfig.isPresent());
         if (config.sideTopicConfig.isPresent()) {
-            System.out.println(ReconConstants.RECON_PREFIX + " recon.sourceTopic=" + config.sideTopicConfig.get().sourceTopic);
-            System.out.println(ReconConstants.RECON_PREFIX + " recon.kafkaBootstrapServers=" + config.sideTopicConfig.get().kafkaBootstrapServers);
-            System.out.println(ReconConstants.RECON_PREFIX + " recon.canaryTopic=" + config.sideTopicConfig.get().canaryTopic.orElse("<none>"));
-            System.out.println(ReconConstants.RECON_PREFIX + " recon.deadLetterTopic=" + config.sideTopicConfig.get().deadLetterTopic.orElse("<none>"));
-            System.out.println(ReconConstants.RECON_PREFIX + " recon.sideTopicStartingOffsets=" + config.sideTopicConfig.get().startingOffsets);
+            info(ReconConstants.RECON_PREFIX + " recon.sourceTopic=" + config.sideTopicConfig.get().sourceTopic);
+            info(ReconConstants.RECON_PREFIX + " recon.kafkaBootstrapServers=" + config.sideTopicConfig.get().kafkaBootstrapServers);
+            info(ReconConstants.RECON_PREFIX + " recon.canaryTopic=" + config.sideTopicConfig.get().canaryTopic.orElse("<none>"));
+            info(ReconConstants.RECON_PREFIX + " recon.deadLetterTopic=" + config.sideTopicConfig.get().deadLetterTopic.orElse("<none>"));
+            info(ReconConstants.RECON_PREFIX + " recon.sideTopicStartingOffsets=" + config.sideTopicConfig.get().startingOffsets);
         }
-        System.out.println(ReconConstants.RECON_PREFIX + " resolved_configuration_end");
+        info(ReconConstants.RECON_PREFIX + " resolved_configuration_end");
     }
 
     /**
@@ -73,10 +104,10 @@ public final class ReconReporter {
     public static void finish(CheckerConfig config, int code, List<String> reasons, String passMessage) {
         if (!reasons.isEmpty()) {
             String message = String.join("; ", reasons);
-            System.err.println(ReconConstants.RECON_PREFIX + " ERROR: " + message);
-            System.out.println(ReconConstants.RECON_PREFIX + " RESULT: FAIL " + message);
+            error(ReconConstants.RECON_PREFIX + " ERROR: " + message);
+            info(ReconConstants.RECON_PREFIX + " RESULT: FAIL " + message);
         } else {
-            System.out.println(ReconConstants.RECON_PREFIX + " RESULT: PASS " + passMessage);
+            info(ReconConstants.RECON_PREFIX + " RESULT: PASS " + passMessage);
         }
 
         if (config.exitOnCompletion) {
@@ -95,10 +126,10 @@ public final class ReconReporter {
      */
     public static void stopNow(int code, String message) {
         if (code == 0) {
-            System.out.println(ReconConstants.RECON_PREFIX + " RESULT: PASS " + message);
+            info(ReconConstants.RECON_PREFIX + " RESULT: PASS " + message);
         } else {
-            System.err.println(ReconConstants.RECON_PREFIX + " ERROR: " + message);
-            System.out.println(ReconConstants.RECON_PREFIX + " RESULT: FAIL " + message);
+            error(ReconConstants.RECON_PREFIX + " ERROR: " + message);
+            info(ReconConstants.RECON_PREFIX + " RESULT: FAIL " + message);
         }
         throw new ReconExit(code, message, true);
     }

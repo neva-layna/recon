@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="RECON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>DENY</onMatch>
+            <onMismatch>ACCEPT</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="RECON_STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.reconciliation.kafka" level="INFO" additivity="false">
+        <appender-ref ref="RECON_STDOUT"/>
+        <appender-ref ref="RECON_STDERR"/>
+    </logger>
+
+    <root level="WARN">
+        <appender-ref ref="RECON_STDOUT"/>
+        <appender-ref ref="RECON_STDERR"/>
+    </root>
+</configuration>

@@ -31,9 +31,25 @@ skipped because the current-day write may still be incomplete.
 
 ## Configuration
 
-Pass checker configuration through Spark conf keys. The Scala checker and Java
-app accept canonical `recon.*` keys and `spark.recon.*` aliases for launchers
-that only preserve `spark.*` keys.
+The Java `spark-submit` checker is YAML-first. It is a Spring Boot 2.7.18
+application that binds `application.yml` values under the `recon` prefix and
+reports through SLF4J with Spring Boot's default Logback backend.
+
+```yaml
+recon:
+  input-roots:
+    - hdfs:///warehouse/topic/root-a
+    - hdfs:///warehouse/topic/root-b
+  metadata-column: cactus__metadata
+  date-partition-column: timestampcolumn
+  run-date: "2026-07-02"
+  fail-on-gaps: true
+```
+
+The existing Spark conf surface remains supported for both Java and Scala.
+For Java, `recon.*` and `spark.recon.*` Spark conf values override the same
+YAML setting. The Scala `spark-shell -i` checker is separate: it uses Spark conf
+only, is not a Spring Boot app, and does not read `application.yml`.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -48,8 +64,11 @@ that only preserve `spark.*` keys.
 | `recon.missingOffsetsLimit` | `1000` | Per-partition safety limit for materializing actual missing offset values in output. Set `0` to report only counts and mark gapped partitions as truncated. |
 | `recon.exitOnCompletion` | `true` | Call `System.exit` so automation does not remain in the interactive shell. |
 
-Java side-topic reconciliation adds these configs. Each `recon.*` spelling also
-has the corresponding `spark.recon.*` alias.
+Java side-topic reconciliation adds these configs. In YAML, use the
+corresponding kebab-case names under `recon`, such as `source-topic`,
+`kafka-bootstrap-servers`, `canary-topic`, `dead-letter-topic`, and
+`side-topic-starting-offsets`. Each `recon.*` Spark conf spelling also has the
+corresponding `spark.recon.*` alias and overrides YAML.
 
 | Key | Alias keys | Default | Meaning |
 | --- | --- | --- | --- |
@@ -83,10 +102,10 @@ Spark conf:
 rtk spark-shell \
   --master yarn \
   --conf 'spark.sql.session.timeZone=UTC' \
-  --conf 'recon.inputRoots=hdfs:///warehouse/topic/root-a,hdfs:///warehouse/topic/root-b' \
-  --conf 'recon.metadataColumn=cactus__metadata' \
-  --conf 'recon.datePartitionColumn=timestampcolumn' \
-  --conf 'recon.runDate=2026-07-02' \
+  --conf 'spark.recon.inputRoots=hdfs:///warehouse/topic/root-a,hdfs:///warehouse/topic/root-b' \
+  --conf 'spark.recon.metadataColumn=cactus__metadata' \
+  --conf 'spark.recon.datePartitionColumn=timestampcolumn' \
+  --conf 'spark.recon.runDate=2026-07-02' \
   -i scripts/check_kafka_offset_gaps.scala
 ```
 
@@ -96,10 +115,10 @@ With persisted normalized offsets:
 rtk spark-shell \
   --master yarn \
   --conf 'spark.sql.session.timeZone=UTC' \
-  --conf 'recon.inputRoots=hdfs:///warehouse/topic/root-a,hdfs:///warehouse/topic/root-b' \
-  --conf 'recon.normalizedOffsetsPath=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02' \
-  --conf 'recon.normalizedOffsetsOverwrite=true' \
-  --conf 'recon.runDate=2026-07-02' \
+  --conf 'spark.recon.inputRoots=hdfs:///warehouse/topic/root-a,hdfs:///warehouse/topic/root-b' \
+  --conf 'spark.recon.normalizedOffsetsPath=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02' \
+  --conf 'spark.recon.normalizedOffsetsOverwrite=true' \
+  --conf 'spark.recon.runDate=2026-07-02' \
   -i scripts/check_kafka_offset_gaps.scala
 ```
 
@@ -158,7 +177,8 @@ or unreadable/empty input failures.
 
 The Java checker is the `spark-submit` product path. It preserves the same
 `recon.*` and `spark.recon.*` configuration surface, `[recon]` output fields,
-and exit code classes as the Scala `spark-shell -i` oracle script.
+and exit code classes as the Scala `spark-shell -i` oracle script, but its
+preferred operator config is Spring Boot `application.yml`.
 
 Build the jar:
 
@@ -167,6 +187,17 @@ rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 ```
 
 Run with the Java production wrapper:
+
+```bash
+rtk env \
+  APPLICATION_YML=/etc/recon/application.yml \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
+```
+
+In that YAML-first wrapper flow, no positional roots are required because the
+checker reads `recon.input-roots` from `application.yml`.
+
+Run with wrapper Spark-conf overrides:
 
 ```bash
 rtk env \
@@ -180,7 +211,9 @@ rtk env \
 The wrapper uses `spark-submit --class
 com.reconciliation.kafka.KafkaOffsetGapChecker` and the built jar at
 `build/libs/recon-kafka-offset-gap-checker-1.0.0.jar` by default. Set
-`CHECKER_JAR` when deploying a copied artifact.
+`CHECKER_JAR` when deploying a copied artifact. Positional roots or
+`INPUT_ROOTS_CSV` make the wrapper forward base values as `spark.recon.*`,
+which override matching YAML settings.
 
 Java wrapper variables:
 
@@ -191,6 +224,8 @@ Java wrapper variables:
 | `CHECKER_JAR` | `build/libs/recon-kafka-offset-gap-checker-1.0.0.jar` | Built Java artifact to submit. |
 | `CHECKER_CLASS` | `com.reconciliation.kafka.KafkaOffsetGapChecker` | Java main class. |
 | `SPARK_SQL_TIMEZONE` | `UTC` | Value for `spark.sql.session.timeZone`. |
+| `APPLICATION_YML` | none | Local YAML file path converted to `SPRING_CONFIG_LOCATION=file:<path>`. |
+| `SPRING_CONFIG_LOCATION` | none | Direct Spring Boot config location for YAML-first runs. |
 | `INPUT_ROOTS_CSV` | none | Comma-separated roots, used when positional roots are not supplied. |
 | `METADATA_COLUMN` | `cactus__metadata` | Metadata JSON column name. |
 | `DATE_PARTITION_COLUMN` | `timestampcolumn` | Hive date partition directory prefix. |
@@ -208,6 +243,32 @@ Java wrapper variables:
 | `SIDE_TOPIC_STARTING_OFFSETS` | `earliest` | Side-topic read start; accepts `earliest` or `beginning`. |
 | `SPARK_PACKAGES` | side-topic default only | Optional override for `spark-submit --packages`. |
 | `SPARK_JARS_IVY` | none | Optional writable Ivy cache forwarded as `spark.jars.ivy`. |
+| `ENABLE_SIDE_TOPIC_PACKAGES` | `false` | Add default Spark Kafka/Avro packages when side-topic config is YAML-only. |
+
+Direct YAML-first Java `spark-submit` uses Spring Boot config environment:
+
+```bash
+rtk env \
+  SPRING_CONFIG_LOCATION=file:/etc/recon/application.yml \
+  spark-submit \
+  --class com.reconciliation.kafka.KafkaOffsetGapChecker \
+  --master yarn \
+  --conf 'spark.sql.session.timeZone=UTC' \
+  build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+```
+
+Direct Spark-conf override Java `spark-submit` uses explicit `spark.recon.*`
+keys:
+
+```bash
+rtk spark-submit \
+  --class com.reconciliation.kafka.KafkaOffsetGapChecker \
+  --master yarn \
+  --conf 'spark.sql.session.timeZone=UTC' \
+  --conf 'spark.recon.inputRoots=hdfs:///data/path/to/parquet1,hdfs:///data/path/to/parquet2' \
+  --conf 'spark.recon.runDate=2026-07-02' \
+  build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+```
 
 ### Java Side-Topic Reconciliation
 
@@ -216,7 +277,19 @@ HDFS parquet into Kafka side topics. For those pipelines, a missing parquet
 offset should be checked against canary and dead-letter topics before it is
 treated as unresolved data loss.
 
-Use the Java production wrapper for side-topic reconciliation:
+Use the Java production wrapper for YAML-first side-topic reconciliation:
+
+```bash
+rtk env \
+  APPLICATION_YML=/etc/recon/orders-side-topic.yml \
+  ENABLE_SIDE_TOPIC_PACKAGES=true \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
+```
+
+The YAML must include `source-topic`, `kafka-bootstrap-servers`, and at least
+one of `canary-topic` or `dead-letter-topic` under `recon`.
+
+Use wrapper Spark-conf overrides for side-topic reconciliation:
 
 ```bash
 rtk env \
@@ -239,7 +312,21 @@ The wrapper submits the Java class with `spark-submit`, forwards values as
 org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4
 ```
 
-Direct Java `spark-submit` uses the same configs:
+Direct YAML-first Java `spark-submit` uses the same YAML and side-topic package
+requirements:
+
+```bash
+rtk env \
+  SPRING_CONFIG_LOCATION=file:/etc/recon/orders-side-topic.yml \
+  spark-submit \
+  --class com.reconciliation.kafka.KafkaOffsetGapChecker \
+  --master yarn \
+  --packages 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4' \
+  --conf 'spark.sql.session.timeZone=UTC' \
+  build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+```
+
+Direct Java `spark-submit` with Spark-conf overrides uses the same configs:
 
 ```bash
 rtk spark-submit \

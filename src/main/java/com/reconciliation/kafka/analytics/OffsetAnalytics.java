@@ -60,9 +60,9 @@ public final class OffsetAnalytics {
 
         Dataset<Row> distinctOffsets = analyticsInput.select(col("partition"), col("offset")).distinct();
         long distinctPairCount = distinctOffsets.count();
-        System.out.println(ReconConstants.RECON_PREFIX + " normalized_offset_row_count=" + normalizedRowCount);
-        System.out.println(ReconConstants.RECON_PREFIX + " distinct_partition_offset_count=" + distinctPairCount);
-        System.out.println(ReconConstants.RECON_PREFIX + " duplicate_offset_row_count=" + (normalizedRowCount - distinctPairCount));
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " normalized_offset_row_count=" + normalizedRowCount);
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " distinct_partition_offset_count=" + distinctPairCount);
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " duplicate_offset_row_count=" + (normalizedRowCount - distinctPairCount));
 
         Dataset<Row> stats = distinctOffsets
             .groupBy(col("partition"))
@@ -94,13 +94,13 @@ public final class OffsetAnalytics {
         Map<Integer, MissingOffsetReport> missingOffsetReports =
             buildMissingOffsetReports(distinctOffsets, stats, config.missingOffsetsLimit);
 
-        System.out.println(ReconConstants.RECON_PREFIX + " partition_gap_stats_begin");
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_gap_stats_begin");
         for (Row row : rows) {
             int partition = RowValues.getInt(row, "partition");
             MissingOffsetReport report = missingOffsetReports.containsKey(partition)
                 ? missingOffsetReports.get(partition)
                 : new MissingOffsetReport(Collections.<Long>emptyList(), false);
-            System.out.println(
+            ReconReporter.info(
                 ReconConstants.RECON_PREFIX + " partition=" + partition
                     + " distinct_offset_count=" + RowValues.getLong(row, "distinct_offset_count")
                     + " min_offset=" + RowValues.getLong(row, "min_offset")
@@ -114,7 +114,7 @@ public final class OffsetAnalytics {
                     + " missing_offsets_truncated=" + report.truncated
             );
         }
-        System.out.println(ReconConstants.RECON_PREFIX + " partition_gap_stats_end");
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_gap_stats_end");
 
         long gapCount = 0L;
         for (Row row : rows) {
@@ -122,14 +122,14 @@ public final class OffsetAnalytics {
                 gapCount++;
             }
         }
-        System.out.println(ReconConstants.RECON_PREFIX + " gap_partition_count=" + gapCount);
+        ReconReporter.info(ReconConstants.RECON_PREFIX + " gap_partition_count=" + gapCount);
         if (gapCount > 0L) {
-            System.out.println(ReconConstants.RECON_PREFIX + " gap_partitions_begin");
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " gap_partitions_begin");
             for (Row row : rows) {
                 if (RowValues.getBoolean(row, "has_gaps")) {
                     int partition = RowValues.getInt(row, "partition");
                     MissingOffsetReport report = missingOffsetReports.get(partition);
-                    System.out.println(
+                    ReconReporter.info(
                         ReconConstants.RECON_PREFIX + " gap_partition=" + partition
                             + " missing_offset_count=" + RowValues.getLong(row, "missing_offset_count")
                             + " min_offset=" + RowValues.getLong(row, "min_offset")
@@ -140,7 +140,7 @@ public final class OffsetAnalytics {
                     );
                 }
             }
-            System.out.println(ReconConstants.RECON_PREFIX + " gap_partitions_end");
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " gap_partitions_end");
         }
 
         return new GapAnalysisResult(gapCount, missingOffsetReports);

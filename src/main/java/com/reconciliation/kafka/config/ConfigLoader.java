@@ -147,13 +147,8 @@ public final class ConfigLoader {
      * @return first present value, or empty when no alias is configured
      */
     public static Optional<String> firstConfOption(ConfLookup lookup, String... keys) {
-        for (String key : keys) {
-            Optional<String> value = confOption(key, lookup);
-            if (value.isPresent()) {
-                return value;
-            }
-        }
-        return Optional.empty();
+        Optional<ResolvedConfValue> value = firstConfValue(lookup, keys);
+        return value.isPresent() ? Optional.of(value.get().value) : Optional.<String>empty();
     }
 
     /**
@@ -165,20 +160,28 @@ public final class ConfigLoader {
      * @return configured value, or empty when neither spelling is present
      */
     public static Optional<String> confOption(String key, ConfLookup lookup) {
-        List<String> aliases = new ArrayList<String>();
-        aliases.add(key);
-        String sparkAlias = "spark." + key;
-        if (!sparkAlias.equals(key)) {
-            aliases.add(sparkAlias);
-        }
+        Optional<ResolvedConfValue> value = firstConfValue(lookup, key);
+        return value.isPresent() ? Optional.of(value.get().value) : Optional.<String>empty();
+    }
 
-        for (String candidate : aliases) {
-            Optional<String> value = lookup.get(candidate);
-            if (value.isPresent()) {
-                return value;
+    /**
+     * Looks up a configuration key, accepting Spark aliases and preserving the
+     * source label for diagnostics.
+     *
+     * @param lookup configuration lookup source
+     * @param keys logical checker keys
+     * @return resolved value, or empty when no alias is configured
+     */
+    public static Optional<ResolvedConfValue> firstConfValue(ConfLookup lookup, String... keys) {
+        List<String> aliases = new ArrayList<String>();
+        for (String key : keys) {
+            aliases.add(key);
+            String sparkAlias = "spark." + key;
+            if (!sparkAlias.equals(key)) {
+                aliases.add(sparkAlias);
             }
         }
-        return Optional.empty();
+        return lookup.getFirst(aliases);
     }
 
     /**
@@ -247,17 +250,17 @@ public final class ConfigLoader {
      *         not yyyy-MM-dd
      */
     static RunDateResult parseRunDate(ConfLookup lookup, Supplier<LocalDate> currentDateSupplier) {
-        Optional<String> raw = confOption("recon.runDate", lookup);
+        Optional<ResolvedConfValue> raw = firstConfValue(lookup, "recon.runDate");
         if (!raw.isPresent()) {
             return new RunDateResult(currentDateSupplier.get(), "driver_current_date");
         }
 
         try {
-            return new RunDateResult(LocalDate.parse(raw.get(), ReconConstants.DATE_FORMATTER), "spark_conf:recon.runDate");
+            return new RunDateResult(LocalDate.parse(raw.get().value, ReconConstants.DATE_FORMATTER), raw.get().source);
         } catch (DateTimeParseException error) {
             ReconReporter.stopNow(
                 2,
-                "Invalid Spark conf recon.runDate=" + raw.get() + "; expected yyyy-MM-dd: " + error.getMessage()
+                "Invalid Spark conf recon.runDate=" + raw.get().value + "; expected yyyy-MM-dd: " + error.getMessage()
             );
             return null;
         }

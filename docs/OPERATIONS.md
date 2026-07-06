@@ -1,6 +1,9 @@
 # Operations
 
-Use the Java `spark-submit` wrapper for production-style runs.
+Use the Java `spark-submit` wrapper for production-style runs. The Java checker
+is a Spring Boot 2.7.18 application: prefer `application.yml` under the `recon`
+prefix for operator config, and use Spark conf only when you need launch-time
+overrides or legacy compatibility.
 
 Use side-topic reconciliation when the source pipeline can redirect records away
 from the HDFS parquet sink. Canary/heartbeat messages and broken source
@@ -23,7 +26,69 @@ The default wrapper artifact is:
 build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
 ```
 
-## Run With Positional Roots
+## Run YAML-First
+
+Create an `application.yml` with base parquet-gap settings:
+
+```yaml
+recon:
+  input-roots:
+    - hdfs:///data/path/to/parquet1
+    - hdfs:///data/path/to/parquet2
+  metadata-column: cactus__metadata
+  date-partition-column: timestampcolumn
+  run-date: "2026-07-02"
+  normalized-offsets-path: hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02
+  normalized-offsets-overwrite: true
+  fail-on-invalid-rows: true
+  fail-on-gaps: true
+  missing-offsets-limit: 1000
+  exit-on-completion: true
+```
+
+Submit it through the wrapper without positional roots:
+
+```bash
+rtk env \
+  APPLICATION_YML=/etc/recon/application.yml \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
+```
+
+`APPLICATION_YML` is converted to `SPRING_CONFIG_LOCATION=file:<path>` before
+`spark-submit`. You can also set `SPRING_CONFIG_LOCATION` directly when using a
+standard Spring Boot config location.
+
+For side-topic reconciliation in YAML, add the side-topic keys to the same
+`recon` block:
+
+```yaml
+recon:
+  input-roots:
+    - hdfs:///data/orders/root-a
+    - hdfs:///data/orders/root-b
+  run-date: "2026-07-02"
+  source-topic: orders
+  kafka-bootstrap-servers: broker-a:9092,broker-b:9092
+  canary-topic: orders-canary
+  dead-letter-topic: orders-dlq
+  side-topic-starting-offsets: earliest
+```
+
+When side-topic settings live only in YAML, ask the wrapper to add the Spark
+Kafka and Avro runtime packages unless your cluster preloads them:
+
+```bash
+rtk env \
+  APPLICATION_YML=/etc/recon/orders-side-topic.yml \
+  ENABLE_SIDE_TOPIC_PACKAGES=true \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
+```
+
+## Run With Spark-Conf Overrides
+
+Positional roots or `INPUT_ROOTS_CSV` make the wrapper forward checker values as
+`spark.recon.*` Spark conf keys. These keys override the same values from
+`application.yml`.
 
 ```bash
 rtk env \
@@ -53,6 +118,8 @@ rtk env \
 | `CHECKER_JAR` | `build/libs/recon-kafka-offset-gap-checker-1.0.0.jar` | Built checker artifact. |
 | `CHECKER_CLASS` | `com.reconciliation.kafka.KafkaOffsetGapChecker` | Java main class. |
 | `SPARK_SQL_TIMEZONE` | `UTC` | Spark SQL session timezone. |
+| `APPLICATION_YML` | none | Local YAML file path converted to `SPRING_CONFIG_LOCATION=file:<path>`. |
+| `SPRING_CONFIG_LOCATION` | none | Direct Spring Boot config location for YAML-first runs. |
 | `INPUT_ROOTS_CSV` | none | Comma-separated roots when positional roots are not used. |
 | `METADATA_COLUMN` | `cactus__metadata` | Metadata JSON column name. |
 | `DATE_PARTITION_COLUMN` | `timestampcolumn` | Hive date partition directory prefix. |
@@ -70,8 +137,11 @@ rtk env \
 | `SIDE_TOPIC_STARTING_OFFSETS` | `earliest` | Side-topic read start; `earliest` and `beginning` are accepted. |
 | `SPARK_PACKAGES` | side-topic default only | Optional override for `spark-submit --packages`. |
 | `SPARK_JARS_IVY` | none | Optional writable Ivy cache path forwarded as `spark.jars.ivy`. |
+| `ENABLE_SIDE_TOPIC_PACKAGES` | `false` | Add default Spark Kafka/Avro packages when side-topic config is YAML-only. |
 
-The wrapper forwards values as `spark.recon.*` Spark conf keys.
+Without positional roots or `INPUT_ROOTS_CSV`, checker values come from
+`application.yml`. With positional roots or `INPUT_ROOTS_CSV`, the wrapper
+forwards base checker values as `spark.recon.*` Spark conf keys.
 
 When any side-topic variable is set, `SOURCE_TOPIC`,
 `KAFKA_BOOTSTRAP_SERVERS`, and at least one of `CANARY_TOPIC` or
@@ -87,6 +157,46 @@ The Spark Kafka connector resolves Kafka 3.x-compatible client libraries for
 Spark 3.5.x.
 Set `SPARK_JARS_IVY` when the Spark runtime user cannot write its default Ivy
 cache, for example in locked-down containers.
+
+## application.yml Configuration
+
+The checker binds Spring Boot YAML from the `recon` prefix as the preferred
+operator config source. A commented sample is packaged at
+`src/main/resources/application.yml`.
+
+```yaml
+recon:
+  input-roots:
+    - hdfs:///warehouse/orders/root-a
+    - hdfs:///warehouse/orders/root-b
+  metadata-column: cactus__metadata
+  date-partition-column: timestampcolumn
+  run-date: "2026-07-02"
+  normalized-offsets-path: hdfs:///tmp/recon-normalized-orders
+  normalized-offsets-overwrite: true
+  fail-on-invalid-rows: true
+  fail-on-gaps: true
+  missing-offsets-limit: 1000
+  exit-on-completion: true
+  source-topic: orders
+  kafka-bootstrap-servers: broker-a:9092,broker-b:9092
+  canary-topic: orders-canary
+  dead-letter-topic: orders-dlq
+  side-topic-starting-offsets: earliest
+```
+
+Spring relaxed binding also accepts camelCase names such as `inputRoots` and
+`sideTopicStartingOffsets`. Quote `run-date` so YAML passes a string in
+`yyyy-MM-dd` form.
+
+Spark conf remains the override layer. Existing `recon.*` and
+`spark.recon.*` keys, including wrapper-forwarded values, take precedence over
+the same setting from `application.yml`. Side-topic `beginning` is normalized
+to `earliest`; unsupported starting offsets fail with exit code `2`.
+
+For direct `spark-submit` YAML runs, make the YAML visible to Spring Boot with
+your cluster's standard mechanism, for example `SPRING_CONFIG_LOCATION` in
+client mode, or a colocated `application.yml`.
 
 ## Run With Side-Topic Reconciliation
 
@@ -119,7 +229,33 @@ classified.
 
 ## Direct spark-submit
 
-The wrapper is preferred, but the equivalent direct shape is:
+The wrapper is preferred, but direct YAML-first `spark-submit` is also valid:
+
+```bash
+rtk env \
+  SPRING_CONFIG_LOCATION=file:/etc/recon/application.yml \
+  spark-submit \
+  --class com.reconciliation.kafka.KafkaOffsetGapChecker \
+  --master yarn \
+  --conf 'spark.sql.session.timeZone=UTC' \
+  build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+```
+
+For YAML side-topic runs, include the Spark 3.5 Kafka source package:
+
+```bash
+rtk env \
+  SPRING_CONFIG_LOCATION=file:/etc/recon/orders-side-topic.yml \
+  spark-submit \
+  --class com.reconciliation.kafka.KafkaOffsetGapChecker \
+  --master yarn \
+  --packages 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,org.apache.avro:avro:1.11.4' \
+  --conf 'spark.sql.session.timeZone=UTC' \
+  build/libs/recon-kafka-offset-gap-checker-1.0.0.jar
+```
+
+Spark-conf override direct runs use the same Java entrypoint with explicit
+`spark.recon.*` values:
 
 ```bash
 rtk spark-submit \
@@ -156,6 +292,12 @@ rtk spark-submit \
 ## Output
 
 The checker writes machine-readable lines prefixed with `[recon]`.
+The packaged `logback.xml` intentionally uses `%msg%n`; this keeps checker
+messages parseable while still routing reporting through SLF4J and Spring
+Boot's default Logback backend. Error lines use SLF4J error level and remain
+visible with `[recon] ERROR:`. When Spark's parent logging backend wins the
+driver classpath, the reporter still emits the `[recon]` payload on its own line
+so machine parsers can match the stable text.
 
 Important sections:
 

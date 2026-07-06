@@ -3,9 +3,12 @@ package com.reconciliation.kafka.sidetopic;
 import java.util.List;
 import java.util.Map;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * Bucketed explanation of missing offsets using canary and dead-letter records.
  */
+@RequiredArgsConstructor
 public final class SideTopicClassification {
     /**
      * Source Kafka topic whose gaps were classified.
@@ -67,57 +70,4 @@ public final class SideTopicClassification {
      * Whether gap analytics truncated the missing-offset set before matching.
      */
     public final boolean missingOffsetsTruncated;
-
-    /**
-     * Creates a side-topic classification result.
-     *
-     * @param sourceTopic source topic whose gaps were classified
-     * @param canaryExplainedOffsets canary matches by partition
-     * @param deadLetterExplainedOffsets dead-letter matches by partition
-     * @param unresolvedOffsets unmatched missing offsets by partition
-     * @param canaryExplainedCount count of canary-explained offsets
-     * @param deadLetterExplainedCount count of dead-letter-explained offsets
-     * @param unresolvedCount count of unexplained offsets
-     * @param rawGapPartitionCount raw parquet partitions with gaps
-     * @param boundedMissingOffsetCount bounded missing offsets classified
-     * @param canaryRecordCount decoded canary record count
-     * @param deadLetterRecordCount decoded dead-letter record count
-     * @param deadLetterFailureEventIdCount matched failureEventId count
-     * @param deadLetterReasonMsgCount matched reasonMsg count
-     * @param deadLetterExceptionCount matched exception count
-     * @param missingOffsetsTruncated whether missing offsets were truncated
-     */
-    public SideTopicClassification(
-        String sourceTopic,
-        Map<Integer, List<Long>> canaryExplainedOffsets,
-        Map<Integer, List<Long>> deadLetterExplainedOffsets,
-        Map<Integer, List<Long>> unresolvedOffsets,
-        long canaryExplainedCount,
-        long deadLetterExplainedCount,
-        long unresolvedCount,
-        long rawGapPartitionCount,
-        long boundedMissingOffsetCount,
-        long canaryRecordCount,
-        long deadLetterRecordCount,
-        long deadLetterFailureEventIdCount,
-        long deadLetterReasonMsgCount,
-        long deadLetterExceptionCount,
-        boolean missingOffsetsTruncated
-    ) {
-        this.sourceTopic = sourceTopic;
-        this.canaryExplainedOffsets = canaryExplainedOffsets;
-        this.deadLetterExplainedOffsets = deadLetterExplainedOffsets;
-        this.unresolvedOffsets = unresolvedOffsets;
-        this.canaryExplainedCount = canaryExplainedCount;
-        this.deadLetterExplainedCount = deadLetterExplainedCount;
-        this.unresolvedCount = unresolvedCount;
-        this.rawGapPartitionCount = rawGapPartitionCount;
-        this.boundedMissingOffsetCount = boundedMissingOffsetCount;
-        this.canaryRecordCount = canaryRecordCount;
-        this.deadLetterRecordCount = deadLetterRecordCount;
-        this.deadLetterFailureEventIdCount = deadLetterFailureEventIdCount;
-        this.deadLetterReasonMsgCount = deadLetterReasonMsgCount;
-        this.deadLetterExceptionCount = deadLetterExceptionCount;
-        this.missingOffsetsTruncated = missingOffsetsTruncated;
-    }
 }

@@ -58,6 +58,71 @@ write_listing() {
   fi
 }
 
+write_common_env_file() {
+  local output_file="$1"
+  local roots="${2:-}"
+  local with_packages="${3:-}"
+
+  {
+    printf 'SPARK_SUBMIT_BIN=%q\n' "$SPARK_SUBMIT_BIN"
+    printf 'SPARK_SHELL_BIN=%q\n' "$SPARK_SHELL_BIN"
+    printf 'SPARK_MASTER=%q\n' "$SPARK_MASTER"
+    printf 'SPARK_PACKAGES=%q\n' "$SPARK_PACKAGES"
+    printf 'SPARK_JARS_IVY=%q\n' "$SPARK_JARS_IVY"
+    printf 'CHECKER_JAR=%q\n' "$CHECKER_JAR"
+    printf 'CHECKER_CLASS=%q\n' "$CHECKER_CLASS"
+    printf 'RUN_DATE=%q\n' "$RUN_DATE"
+    printf 'INPUT_ROOTS_CSV=%q\n' "$roots"
+    printf 'WITH_PACKAGES=%q\n' "$with_packages"
+    printf 'KAFKA_BOOTSTRAP_SERVERS=%q\n' "$KAFKA_BOOTSTRAP_SERVERS"
+    printf 'SOURCE_TOPIC=%q\n' "$SOURCE_TOPIC"
+    printf 'CANARY_TOPIC=%q\n' "$CANARY_TOPIC"
+    printf 'DEAD_LETTER_TOPIC=%q\n' "$DEAD_LETTER_TOPIC"
+    printf 'DEAD_LETTER_ONLY_TOPIC=%q\n' "$DEAD_LETTER_ONLY_TOPIC"
+    printf 'EMPTY_CANARY_TOPIC=%q\n' "$EMPTY_CANARY_TOPIC"
+    printf 'EMPTY_DEAD_LETTER_TOPIC=%q\n' "$EMPTY_DEAD_LETTER_TOPIC"
+    printf 'BAD_CANARY_TOPIC=%q\n' "$BAD_CANARY_TOPIC"
+  } > "$output_file"
+}
+
+write_yaml_side_config() {
+  local output_file="$1"
+  local roots="$2"
+  local source_topic="$3"
+  local bootstrap_servers="$4"
+  local canary_topic="$5"
+  local dead_letter_topic="$6"
+  local missing_offsets_limit="${7:-1000}"
+  local root
+  local root_items=()
+
+  IFS=',' read -r -a root_items <<< "$roots"
+  {
+    printf 'recon:\n'
+    printf '  input-roots:\n'
+    for root in "${root_items[@]}"; do
+      printf '    - "%s"\n' "$root"
+    done
+    printf '  metadata-column: cactus__metadata\n'
+    printf '  date-partition-column: timestampcolumn\n'
+    printf '  run-date: "%s"\n' "$RUN_DATE"
+    printf '  normalized-offsets-overwrite: true\n'
+    printf '  fail-on-invalid-rows: true\n'
+    printf '  fail-on-gaps: true\n'
+    printf '  missing-offsets-limit: %s\n' "$missing_offsets_limit"
+    printf '  exit-on-completion: true\n'
+    printf '  source-topic: "%s"\n' "$source_topic"
+    printf '  kafka-bootstrap-servers: "%s"\n' "$bootstrap_servers"
+    if [[ -n "$canary_topic" ]]; then
+      printf '  canary-topic: "%s"\n' "$canary_topic"
+    fi
+    if [[ -n "$dead_letter_topic" ]]; then
+      printf '  dead-letter-topic: "%s"\n' "$dead_letter_topic"
+    fi
+    printf '  side-topic-starting-offsets: earliest\n'
+  } > "$output_file"
+}
+
 is_true() {
   case "$1" in
     true|TRUE|yes|YES|1|y|Y) return 0 ;;
@@ -253,6 +318,29 @@ run_java_checker_command() {
     "$CHECKER_JAR"
 }
 
+run_java_checker_yaml_command() {
+  local with_packages="$1"
+  local yaml_file="$2"
+  shift 2
+
+  local package_args=()
+  if [[ "$with_packages" == "with_packages" && -n "$SPARK_PACKAGES" ]]; then
+    package_args+=(--packages "$SPARK_PACKAGES")
+  fi
+  if [[ "$with_packages" == "with_packages" && -n "$SPARK_JARS_IVY" ]]; then
+    package_args+=(--conf "spark.jars.ivy=$SPARK_JARS_IVY")
+  fi
+
+  SPRING_CONFIG_LOCATION="file:$yaml_file" \
+  "$SPARK_SUBMIT_BIN" \
+    --class "$CHECKER_CLASS" \
+    --master "$SPARK_MASTER" \
+    "${package_args[@]}" \
+    --conf "spark.sql.session.timeZone=UTC" \
+    "$@" \
+    "$CHECKER_JAR"
+}
+
 write_java_checker_command() {
   local output_file="$1"
   local with_packages="$2"
@@ -293,16 +381,83 @@ run_expected() {
   local stdout_file="$scenario_dir/stdout.log"
   local stderr_file="$scenario_dir/stderr.log"
   local command_file="$scenario_dir/command.txt"
+  local env_file="$scenario_dir/env.txt"
   local expected_file="$scenario_dir/expected_exit.txt"
   local exit_file="$scenario_dir/exit_code.txt"
   local verdict_file="$scenario_dir/verdict.txt"
   local verdict="fail"
 
   printf '%s\n' "$expected" > "$expected_file"
+  write_common_env_file "$env_file" "$roots" "$with_packages"
   write_java_checker_command "$command_file" "$with_packages" "$roots" "$@"
 
   echo "[recon-side-test] scenario=$name expected_exit=$expected"
   run_java_checker_command "$with_packages" "$roots" "$@" > "$stdout_file" 2> "$stderr_file"
+  local code=$?
+  printf '%s\n' "$code" > "$exit_file"
+
+  if [[ "$code" == "$expected" ]]; then
+    verdict="pass"
+  fi
+
+  printf '%s\n' "$verdict" > "$verdict_file"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$name" "$expected" "$code" "$verdict" "$stdout_file" "$stderr_file" >> "$RESULTS_TSV"
+
+  echo "[recon-side-test] scenario=$name observed_exit=$code verdict=$verdict evidence=$scenario_dir"
+
+  [[ "$verdict" == "pass" ]]
+}
+
+run_yaml_expected() {
+  local name="$1"
+  local expected="$2"
+  local roots="$3"
+  local with_packages="$4"
+  local source_topic="$5"
+  local canary_topic="$6"
+  local dead_letter_topic="$7"
+  local missing_offsets_limit="${8:-1000}"
+  shift 8
+
+  local scenario_dir="$SCENARIO_ROOT/$name"
+  rm -rf "$scenario_dir"
+  mkdir -p "$scenario_dir"
+
+  local stdout_file="$scenario_dir/stdout.log"
+  local stderr_file="$scenario_dir/stderr.log"
+  local command_file="$scenario_dir/command.txt"
+  local env_file="$scenario_dir/env.txt"
+  local yaml_file="$scenario_dir/application.yml"
+  local expected_file="$scenario_dir/expected_exit.txt"
+  local exit_file="$scenario_dir/exit_code.txt"
+  local verdict_file="$scenario_dir/verdict.txt"
+  local verdict="fail"
+  local package_args=()
+
+  if [[ "$with_packages" == "with_packages" && -n "$SPARK_PACKAGES" ]]; then
+    package_args+=(--packages "$SPARK_PACKAGES")
+  fi
+  if [[ "$with_packages" == "with_packages" && -n "$SPARK_JARS_IVY" ]]; then
+    package_args+=(--conf "spark.jars.ivy=$SPARK_JARS_IVY")
+  fi
+
+  printf '%s\n' "$expected" > "$expected_file"
+  write_yaml_side_config "$yaml_file" "$roots" "$source_topic" "$KAFKA_BOOTSTRAP_SERVERS" "$canary_topic" "$dead_letter_topic" "$missing_offsets_limit"
+  write_common_env_file "$env_file" "$roots" "$with_packages"
+  printf 'SPRING_CONFIG_LOCATION=%q\n' "file:$yaml_file" >> "$env_file"
+  print_command "$command_file" \
+    env "SPRING_CONFIG_LOCATION=file:$yaml_file" \
+    "$SPARK_SUBMIT_BIN" \
+    --class "$CHECKER_CLASS" \
+    --master "$SPARK_MASTER" \
+    "${package_args[@]}" \
+    --conf "spark.sql.session.timeZone=UTC" \
+    "$@" \
+    "$CHECKER_JAR"
+
+  echo "[recon-side-test] scenario=$name expected_exit=$expected"
+  run_java_checker_yaml_command "$with_packages" "$yaml_file" "$@" > "$stdout_file" 2> "$stderr_file"
   local code=$?
   printf '%s\n' "$code" > "$exit_file"
 
@@ -399,22 +554,89 @@ run_wrapper_expected() {
   [[ "$verdict" == "pass" ]]
 }
 
+run_wrapper_yaml_expected() {
+  local name="$1"
+  local expected="$2"
+  local roots="$3"
+  local source_topic="$4"
+  local canary_topic="$5"
+  local dead_letter_topic="$6"
+
+  local scenario_dir="$SCENARIO_ROOT/$name"
+  rm -rf "$scenario_dir"
+  mkdir -p "$scenario_dir"
+
+  local stdout_file="$scenario_dir/stdout.log"
+  local stderr_file="$scenario_dir/stderr.log"
+  local command_file="$scenario_dir/command.txt"
+  local env_file="$scenario_dir/env.txt"
+  local yaml_file="$scenario_dir/application.yml"
+  local expected_file="$scenario_dir/expected_exit.txt"
+  local exit_file="$scenario_dir/exit_code.txt"
+  local verdict_file="$scenario_dir/verdict.txt"
+  local verdict="fail"
+
+  printf '%s\n' "$expected" > "$expected_file"
+  write_yaml_side_config "$yaml_file" "$roots" "$source_topic" "$KAFKA_BOOTSTRAP_SERVERS" "$canary_topic" "$dead_letter_topic" 1000
+  write_common_env_file "$env_file" "$roots" "with_packages"
+  {
+    printf 'APPLICATION_YML=%q\n' "$yaml_file"
+    printf 'ENABLE_SIDE_TOPIC_PACKAGES=true\n'
+  } >> "$env_file"
+  {
+    printf 'env \\\n'
+    printf '  SPARK_SUBMIT_BIN=%q \\\n' "$SPARK_SUBMIT_BIN"
+    printf '  SPARK_MASTER=%q \\\n' "$SPARK_MASTER"
+    printf '  SPARK_PACKAGES=%q \\\n' "$SPARK_PACKAGES"
+    printf '  SPARK_JARS_IVY=%q \\\n' "$SPARK_JARS_IVY"
+    printf '  CHECKER_JAR=%q \\\n' "$CHECKER_JAR"
+    printf '  APPLICATION_YML=%q \\\n' "$yaml_file"
+    printf '  ENABLE_SIDE_TOPIC_PACKAGES=true \\\n'
+    printf '  %q\n' "$PROD_WRAPPER"
+  } > "$command_file"
+
+  echo "[recon-side-test] scenario=$name expected_exit=$expected"
+  SPARK_SUBMIT_BIN="$SPARK_SUBMIT_BIN" \
+  SPARK_MASTER="$SPARK_MASTER" \
+  SPARK_PACKAGES="$SPARK_PACKAGES" \
+  SPARK_JARS_IVY="$SPARK_JARS_IVY" \
+  CHECKER_JAR="$CHECKER_JAR" \
+  APPLICATION_YML="$yaml_file" \
+  ENABLE_SIDE_TOPIC_PACKAGES=true \
+  "$PROD_WRAPPER" > "$stdout_file" 2> "$stderr_file"
+  local code=$?
+  printf '%s\n' "$code" > "$exit_file"
+
+  if [[ "$code" == "$expected" ]]; then
+    verdict="pass"
+  fi
+
+  printf '%s\n' "$verdict" > "$verdict_file"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$name" "$expected" "$code" "$verdict" "$stdout_file" "$stderr_file" >> "$RESULTS_TSV"
+
+  echo "[recon-side-test] scenario=$name observed_exit=$code verdict=$verdict evidence=$scenario_dir"
+
+  [[ "$verdict" == "pass" ]]
+}
+
 assert_stdout_regex() {
   local name="$1"
   local regex="$2"
   local label="$3"
   local scenario_dir="$SCENARIO_ROOT/$name"
   local stdout_file="$scenario_dir/stdout.log"
+  local stderr_file="$scenario_dir/stderr.log"
   local assertion_file="$scenario_dir/assertion_$label.txt"
 
-  if grep -Eq "$regex" "$stdout_file"; then
+  if grep -Eq "$regex" "$stdout_file" "$stderr_file"; then
     printf 'pass\nregex=%s\n' "$regex" > "$assertion_file"
     printf '%s\t%s\tpass\t%s\n' "$name" "$label" "$regex" >> "$ASSERTIONS_TSV"
     echo "[recon-side-test] scenario=$name assertion=$label verdict=pass"
     return 0
   fi
 
-  printf 'fail\nregex=%s\nstdout=%s\n' "$regex" "$stdout_file" > "$assertion_file"
+  printf 'fail\nregex=%s\nstdout=%s\nstderr=%s\n' "$regex" "$stdout_file" "$stderr_file" > "$assertion_file"
   printf '%s\t%s\tfail\t%s\n' "$name" "$label" "$regex" >> "$ASSERTIONS_TSV"
   echo "[recon-side-test] scenario=$name assertion=$label verdict=fail evidence=$assertion_file"
   return 1
@@ -426,10 +648,11 @@ assert_stdout_not_regex() {
   local label="$3"
   local scenario_dir="$SCENARIO_ROOT/$name"
   local stdout_file="$scenario_dir/stdout.log"
+  local stderr_file="$scenario_dir/stderr.log"
   local assertion_file="$scenario_dir/assertion_$label.txt"
 
-  if grep -Eq "$regex" "$stdout_file"; then
-    printf 'fail\nunexpected_regex=%s\nstdout=%s\n' "$regex" "$stdout_file" > "$assertion_file"
+  if grep -Eq "$regex" "$stdout_file" "$stderr_file"; then
+    printf 'fail\nunexpected_regex=%s\nstdout=%s\nstderr=%s\n' "$regex" "$stdout_file" "$stderr_file" > "$assertion_file"
     printf '%s\t%s\tfail\t%s\n' "$name" "$label" "$regex" >> "$ASSERTIONS_TSV"
     echo "[recon-side-test] scenario=$name assertion=$label verdict=fail evidence=$assertion_file"
     return 1
@@ -639,6 +862,16 @@ else
   failures=$((failures + 1))
 fi
 
+if run_yaml_expected "yaml_canary_dead_letter_resolved" 0 "$gap_two_root" with_packages "$SOURCE_TOPIC" "$CANARY_TOPIC" "$DEAD_LETTER_TOPIC" 1000; then
+  assert_stdout_regex "yaml_canary_dead_letter_resolved" 'recon.runDateSource=application_yml:recon.runDate' "yaml_run_date_source" || failures=$((failures + 1))
+  assert_stdout_regex "yaml_canary_dead_letter_resolved" 'recon.sideTopic.enabled=true' "yaml_side_topic_enabled" || failures=$((failures + 1))
+  assert_stdout_regex "yaml_canary_dead_letter_resolved" 'side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=\[1\]' "yaml_canary_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "yaml_canary_dead_letter_resolved" 'side_topic_bucket=dead_letter_explained source_topic=orders side_topic=orders-dlq partition=0 offset_count=1 offsets=\[2\]' "yaml_dead_letter_offset_2" || failures=$((failures + 1))
+  assert_stdout_regex "yaml_canary_dead_letter_resolved" 'final_exit_decision code=0 .*unresolved_count=0' "yaml_final_exit_0" || failures=$((failures + 1))
+else
+  failures=$((failures + 1))
+fi
+
 if run_expected "canary_dead_letter_truncated_prefix_only" 1 "$gap_over_limit_root" with_packages \
   --conf "spark.recon.sourceTopic=$SOURCE_TOPIC" \
   --conf "spark.recon.kafkaBootstrapServers=$KAFKA_BOOTSTRAP_SERVERS" \
@@ -730,12 +963,25 @@ else
   failures=$((failures + 1))
 fi
 
+if run_wrapper_yaml_expected "production_wrapper_yaml_side_topic_config_capture" 0 "$gap_two_root" "$SOURCE_TOPIC" "$CANARY_TOPIC" "$DEAD_LETTER_TOPIC"; then
+  assert_stdout_regex "production_wrapper_yaml_side_topic_config_capture" 'recon.runDateSource=application_yml:recon.runDate' "wrapper_yaml_run_date_source" || failures=$((failures + 1))
+  assert_stdout_regex "production_wrapper_yaml_side_topic_config_capture" 'recon.sideTopic.enabled=true' "wrapper_yaml_side_topic_enabled" || failures=$((failures + 1))
+  assert_stdout_regex "production_wrapper_yaml_side_topic_config_capture" 'recon.sourceTopic=orders' "wrapper_yaml_source_topic" || failures=$((failures + 1))
+  assert_stdout_regex "production_wrapper_yaml_side_topic_config_capture" 'side_topic_bucket=canary_explained source_topic=orders side_topic=orders-canary partition=0 offset_count=1 offsets=\[1\]' "wrapper_yaml_canary_offset_1" || failures=$((failures + 1))
+  assert_stdout_regex "production_wrapper_yaml_side_topic_config_capture" 'side_topic_bucket=dead_letter_explained source_topic=orders side_topic=orders-dlq partition=0 offset_count=1 offsets=\[2\]' "wrapper_yaml_dead_letter_offset_2" || failures=$((failures + 1))
+  assert_stdout_regex "production_wrapper_yaml_side_topic_config_capture" 'final_exit_decision code=0 .*unresolved_count=0' "wrapper_yaml_final_exit_0" || failures=$((failures + 1))
+else
+  failures=$((failures + 1))
+fi
+
 write_listing "$FIXTURE_ROOT" "$EVIDENCE_ROOT/fixture_listing.txt"
+write_listing "$FIXTURE_ROOT/cache" "$EVIDENCE_ROOT/cache_listing.txt"
 
 echo "[recon-side-test] scenario_results=$RESULTS_TSV"
 echo "[recon-side-test] assertion_results=$ASSERTIONS_TSV"
 echo "[recon-side-test] kafka_manifest=$side_manifest"
 echo "[recon-side-test] fixture_listing=$EVIDENCE_ROOT/fixture_listing.txt"
+echo "[recon-side-test] cache_listing=$EVIDENCE_ROOT/cache_listing.txt"
 echo "[recon-side-test] evidence_root=$EVIDENCE_ROOT"
 
 if [[ "$failures" -ne 0 ]]; then

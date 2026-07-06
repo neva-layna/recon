@@ -5,6 +5,12 @@ data. The production path is the Gradle Java application submitted with
 `spark-submit`; the original Scala `spark-shell -i` script remains as a behavior
 oracle and compatibility reference.
 
+The Java checker is a Spring Boot 2.7.18 application. Operator configuration is
+YAML-first through `application.yml` under the `recon` prefix, with the existing
+`recon.*` and `spark.recon.*` Spark conf keys preserved as override-compatible
+launch settings. Reporting goes through SLF4J with Spring Boot's default
+Logback backend while keeping stable `[recon]` machine-readable lines.
+
 Canary/heartbeat records and broken source messages can be redirected away from
 the normal HDFS parquet sink into Kafka side topics. When parquet offsets are
 missing, operators should reconcile those missing offsets against the configured
@@ -73,7 +79,42 @@ topics, writes Avro side-topic records, and runs the Java checker through
 `apache/spark:3.5.6` `spark-submit`. Evidence is written under
 `.recon-local-side/evidence/run/`.
 
-## Quick Production-Style Run
+## Quick YAML-First Run
+
+Put base parquet-gap settings in an `application.yml`:
+
+```yaml
+recon:
+  input-roots:
+    - hdfs:///data/path/to/parquet1
+    - hdfs:///data/path/to/parquet2
+  run-date: "2026-07-02"
+  metadata-column: cactus__metadata
+  date-partition-column: timestampcolumn
+  fail-on-gaps: true
+```
+
+Submit the Java checker with that YAML:
+
+```bash
+rtk env \
+  APPLICATION_YML=/etc/recon/application.yml \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
+```
+
+For YAML side-topic reconciliation, include `source-topic`,
+`kafka-bootstrap-servers`, and at least one of `canary-topic` or
+`dead-letter-topic` in the same `recon` YAML block, then add the Spark Kafka
+runtime packages through the wrapper:
+
+```bash
+rtk env \
+  APPLICATION_YML=/etc/recon/orders-side-topic.yml \
+  ENABLE_SIDE_TOPIC_PACKAGES=true \
+  scripts/run_java_kafka_offset_gap_check_prod.sh
+```
+
+## Quick Spark-Conf Override Run
 
 ```bash
 rtk env \
@@ -82,6 +123,10 @@ rtk env \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2
 ```
+
+Positional roots or `INPUT_ROOTS_CSV` make the wrapper forward checker values as
+`spark.recon.*` Spark conf keys. Those values override the same settings from
+`application.yml`.
 
 ## Quick Side-Topic Run
 

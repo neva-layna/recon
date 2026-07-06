@@ -2,9 +2,12 @@ package com.reconciliation.kafka.sidetopic;
 
 import java.util.Optional;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * Decoded side-topic record with the original source Kafka coordinates.
  */
+@RequiredArgsConstructor
 public final class SideTopicRecord {
     /**
      * Side-topic kind the record was decoded from.
@@ -38,38 +41,6 @@ public final class SideTopicRecord {
      * Optional dead-letter exception text.
      */
     public final Optional<String> exception;
-
-    /**
-     * Creates a decoded side-topic record.
-     *
-     * @param kind side-topic kind
-     * @param sideTopic Kafka topic that contained the record
-     * @param sourceTopic original source topic
-     * @param sourcePartition original source partition
-     * @param sourceOffset original source offset
-     * @param failureEventId optional dead-letter failure event id
-     * @param reasonMsg optional dead-letter reason message
-     * @param exception optional dead-letter exception text
-     */
-    public SideTopicRecord(
-        SideTopicKind kind,
-        String sideTopic,
-        String sourceTopic,
-        int sourcePartition,
-        long sourceOffset,
-        Optional<String> failureEventId,
-        Optional<String> reasonMsg,
-        Optional<String> exception
-    ) {
-        this.kind = kind;
-        this.sideTopic = sideTopic;
-        this.sourceTopic = sourceTopic;
-        this.sourcePartition = sourcePartition;
-        this.sourceOffset = sourceOffset;
-        this.failureEventId = failureEventId;
-        this.reasonMsg = reasonMsg;
-        this.exception = exception;
-    }
 
     /**
      * Builds the matching key used to compare this record with missing offsets.
