@@ -15,7 +15,7 @@ RUN_DATE="${RUN_DATE:-2026-07-02}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CHECKER="$WORKSPACE_ROOT/scripts/check/check_kafka_offset_gaps.scala"
-GENERATOR="$WORKSPACE_ROOT/tests/fixtures/generate_kafka_offset_gap_fixtures.scala"
+GENERATOR="$WORKSPACE_ROOT/scripts/fixtures/generate_kafka_offset_gap_fixtures.scala"
 SCENARIO_ROOT="$EVIDENCE_ROOT/scenarios"
 RESULTS_TSV="$EVIDENCE_ROOT/scenario_results.tsv"
 

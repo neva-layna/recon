@@ -106,7 +106,7 @@ inside `apache/spark:3.5.6`:
 | `orders-empty-dlq` | Empty dead-letter topic for canary-only exit scenarios. |
 | `orders-bad-canary` | Non-Avro payload for fail-closed decode validation. |
 
-Inside the Spark container, `tests/fixtures/generate_kafka_side_topic_records.scala`
+Inside the Spark container, `scripts/fixtures/generate_kafka_side_topic_records.scala`
 writes Avro object-container side-topic records to those topics and records a
 manifest at `kafka/side_topic_records.tsv`. The checker scenarios then run
 through Java `spark-submit`. The runner also invokes
@@ -156,7 +156,7 @@ The Java fixture runner:
 
 1. Verifies `spark-submit --version` reports Spark 3.5.x.
 2. Uses `spark-shell` only to run
-   `tests/fixtures/generate_kafka_offset_gap_fixtures.scala` and generate
+   `scripts/fixtures/generate_kafka_offset_gap_fixtures.scala` and generate
    parquet fixtures.
 3. Runs every checker scenario with:
 

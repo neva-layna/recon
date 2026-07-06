@@ -397,7 +397,7 @@ Production notes:
 
 Use `scripts/sample/generate_hadoop_offset_gap_sample_data.sh` when you want a small
 HDFS smoke dataset before running against production paths. It runs
-`tests/fixtures/generate_kafka_offset_gap_sample_data.scala` with Spark 3.5 and writes
+`scripts/fixtures/generate_kafka_offset_gap_sample_data.scala` with Spark 3.5 and writes
 only two scenarios, not the full local fixture matrix.
 
 Generate the sample data:
@@ -487,11 +487,11 @@ will skip the generated partitions as current-day data.
 | `src/main/java/com/reconciliation/kafka/KafkaOffsetGapChecker.java` | Java Spark SQL/DataFrame port for `spark-submit`. |
 | `scripts/check/run_java_kafka_offset_gap_check_prod.sh` | Production wrapper for the Java `spark-submit` checker. |
 | `scripts/validation/run_java_kafka_side_topic_fixture_checks.sh` | Local Kafka 3.x side-topic validation runner for the Java checker. |
-| `tests/fixtures/generate_kafka_offset_gap_sample_data.scala` | Small Spark generator for the two Hadoop sample scenarios. |
+| `scripts/fixtures/generate_kafka_offset_gap_sample_data.scala` | Small Spark generator for the two Hadoop sample scenarios. |
 | `scripts/sample/generate_hadoop_offset_gap_sample_data.sh` | Wrapper around the small sample generator. |
 | `scripts/sample/run_hadoop_offset_gap_sample_checks.sh` | Wrapper that verifies the two generated sample scenarios. |
-| `tests/fixtures/generate_kafka_offset_gap_fixtures.scala` | Full validation fixture generator used by the local test runner. |
-| `tests/fixtures/generate_kafka_side_topic_records.scala` | Spark fixture producer for side-topic Avro object-container records. |
+| `scripts/fixtures/generate_kafka_offset_gap_fixtures.scala` | Full validation fixture generator used by the local test runner. |
+| `scripts/fixtures/generate_kafka_side_topic_records.scala` | Spark fixture producer for side-topic Avro object-container records. |
 | `scripts/validation/run_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner covering all edge cases. |
 | `scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner for the Java `spark-submit` port. |
 
@@ -531,7 +531,7 @@ rtk docker run --rm \
 ```
 
 The Java helper uses `spark-shell` only to generate deterministic parquet
-fixtures from `tests/fixtures/generate_kafka_offset_gap_fixtures.scala`. Every
+fixtures from `scripts/fixtures/generate_kafka_offset_gap_fixtures.scala`. Every
 checker scenario is then run through `spark-submit --class
 com.reconciliation.kafka.KafkaOffsetGapChecker` and the built Java jar, not
 through `spark-shell -i scripts/check/check_kafka_offset_gaps.scala`.
@@ -548,7 +548,7 @@ The Docker wrapper starts `apache/kafka:3.7.0`, creates the `orders-canary`,
 `orders-dlq`, `orders-dlq-only`, `orders-empty-canary`, `orders-empty-dlq`,
 and `orders-bad-canary` topics, then runs the
 side-topic matrix in `apache/spark:3.5.6`. The Spark-side runner uses
-`tests/fixtures/generate_kafka_side_topic_records.scala` only to create Avro
+`scripts/fixtures/generate_kafka_side_topic_records.scala` only to create Avro
 object-container side-topic messages and runs all checker scenarios through
 Java `spark-submit`. Evidence is written under `.recon-local-side/evidence/run/`,
 including `scenario_results.tsv`, `assertion_results.tsv`,
@@ -602,7 +602,7 @@ rtk docker run --rm \
 ```
 
 The helper first runs `spark-shell --version` and requires Spark 3.5.x evidence.
-It then runs `tests/fixtures/generate_kafka_offset_gap_fixtures.scala` and the
+It then runs `scripts/fixtures/generate_kafka_offset_gap_fixtures.scala` and the
 checker for each scenario.
 
 To run the same helper with an already available Spark 3.5.x shell:

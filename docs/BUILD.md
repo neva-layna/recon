@@ -39,8 +39,8 @@ brokers or fixtures.
 | `scripts/check/run_java_kafka_offset_gap_check_prod.sh` | Production `spark-submit` wrapper. |
 | `scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh` | Local Java fixture validation runner. |
 | `scripts/validation/run_java_kafka_side_topic_fixture_checks.sh` | Local Kafka 3.x side-topic validation runner for the Java checker. |
-| `tests/fixtures/generate_kafka_offset_gap_fixtures.scala` | Spark fixture generator used by local validation. |
-| `tests/fixtures/generate_kafka_side_topic_records.scala` | Spark fixture producer for deterministic Avro object-container side-topic messages. |
+| `scripts/fixtures/generate_kafka_offset_gap_fixtures.scala` | Spark fixture generator used by local validation. |
+| `scripts/fixtures/generate_kafka_side_topic_records.scala` | Spark fixture producer for deterministic Avro object-container side-topic messages. |
 
 These are workspace-root product paths. They are not nested under the Zenith
 harness package.

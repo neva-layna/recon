@@ -24,7 +24,7 @@ bytecode. Product deliverables live at workspace-root paths such as
 `src/main/java/com/reconciliation/kafka/`,
 `scripts/check/run_java_kafka_offset_gap_check_prod.sh`,
 `scripts/validation/run_java_kafka_side_topic_fixture_checks.sh`,
-`tests/fixtures/generate_kafka_side_topic_records.scala`, and `docs/`.
+`scripts/fixtures/generate_kafka_side_topic_records.scala`, and `docs/`.
 
 ## Documentation
 
