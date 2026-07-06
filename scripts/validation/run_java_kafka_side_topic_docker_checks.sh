@@ -29,7 +29,7 @@ HOST_RUN_EVIDENCE_ROOT="${HOST_RUN_EVIDENCE_ROOT:-$HOST_EVIDENCE_ROOT/run}"
 CONTAINER_FIXTURE_ROOT="${CONTAINER_FIXTURE_ROOT:-/fixtures/run}"
 CONTAINER_EVIDENCE_ROOT="${CONTAINER_EVIDENCE_ROOT:-/evidence/run}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CHECKER_JAR="${CHECKER_JAR:-$WORKSPACE_ROOT/build/libs/recon-kafka-offset-gap-checker-1.0.0.jar}"
 CLEANUP="${CLEANUP:-true}"
 
@@ -176,7 +176,7 @@ echo "[recon-side-docker] running Spark image=$SPARK_IMAGE"
   -v "$HOST_EVIDENCE_ROOT":/evidence \
   -w /workspace \
   "$SPARK_IMAGE" \
-  -lc 'scripts/run_java_kafka_side_topic_fixture_checks.sh'
+  -lc 'scripts/validation/run_java_kafka_side_topic_fixture_checks.sh'
 
 mkdir -p "$HOST_RUN_EVIDENCE_ROOT/kafka"
 printf '%s\n' "$KAFKA_IMAGE" > "$HOST_RUN_EVIDENCE_ROOT/kafka/kafka_image.txt"

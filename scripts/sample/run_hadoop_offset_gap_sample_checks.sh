@@ -10,7 +10,7 @@ set +e
 #   - gap roots exit 1 and print missing_offsets=[1] for partition 0.
 #
 # Usage:
-#   RUN_DATE=2026-07-02 scripts/run_hadoop_offset_gap_sample_checks.sh hdfs:///tmp/recon-offset-samples
+#   RUN_DATE=2026-07-02 scripts/sample/run_hadoop_offset_gap_sample_checks.sh hdfs:///tmp/recon-offset-samples
 
 SPARK_SHELL_BIN="${SPARK_SHELL_BIN:-spark-shell}"
 SPARK_MASTER="${SPARK_MASTER:-yarn}"
@@ -21,7 +21,8 @@ METADATA_COLUMN="${METADATA_COLUMN:-cactus__metadata}"
 DATE_PARTITION_COLUMN="${DATE_PARTITION_COLUMN:-timestampcolumn}"
 MISSING_OFFSETS_LIMIT="${MISSING_OFFSETS_LIMIT:-1000}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHECKER="$SCRIPT_DIR/check_kafka_offset_gaps.scala"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CHECKER="$WORKSPACE_ROOT/scripts/check/check_kafka_offset_gaps.scala"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   sed -n '3,14p' "$0"

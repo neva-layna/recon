@@ -51,7 +51,7 @@ Submit it through the wrapper without positional roots:
 ```bash
 rtk env \
   APPLICATION_YML=/etc/recon/application.yml \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 `APPLICATION_YML` is converted to `SPRING_CONFIG_LOCATION=file:<path>` before
@@ -95,7 +95,7 @@ Kafka and Avro runtime packages unless your cluster preloads them:
 rtk env \
   APPLICATION_YML=/etc/recon/orders-side-topic.yml \
   ENABLE_SIDE_TOPIC_PACKAGES=true \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 ## Run With Spark-Conf Overrides
@@ -108,7 +108,7 @@ Positional roots or `INPUT_ROOTS_CSV` make the wrapper forward checker values as
 rtk env \
   RUN_DATE=2026-07-02 \
   NORMALIZED_OFFSETS_PATH=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_check_prod.sh \
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2 \
   hdfs:///data/path/to/parquet3
@@ -120,7 +120,7 @@ rtk env \
 rtk env \
   INPUT_ROOTS_CSV='hdfs:///data/path/to/parquet1,hdfs:///data/path/to/parquet2' \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 ## Wrapper Variables
@@ -238,7 +238,7 @@ rtk env \
   CANARY_TOPIC=orders-canary \
   DEAD_LETTER_TOPIC=orders-dlq \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_check_prod.sh \
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/orders/root-a \
   hdfs:///data/orders/root-b
 ```

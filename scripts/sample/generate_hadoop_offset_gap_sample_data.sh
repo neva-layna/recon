@@ -6,7 +6,7 @@ set -euo pipefail
 #   2. gap/root_a + gap/root_b: partition 0 is missing offset 1 after union.
 #
 # Usage:
-#   scripts/generate_hadoop_offset_gap_sample_data.sh hdfs:///tmp/recon-offset-samples
+#   scripts/sample/generate_hadoop_offset_gap_sample_data.sh hdfs:///tmp/recon-offset-samples
 #
 # Environment overrides:
 #   SPARK_SHELL_BIN=spark-shell
@@ -24,7 +24,8 @@ SAMPLE_OLD_DATE="${SAMPLE_OLD_DATE:-2026-07-01}"
 METADATA_COLUMN="${METADATA_COLUMN:-cactus__metadata}"
 DATE_PARTITION_COLUMN="${DATE_PARTITION_COLUMN:-timestampcolumn}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GENERATOR="$SCRIPT_DIR/generate_kafka_offset_gap_sample_data.scala"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+GENERATOR="$WORKSPACE_ROOT/tests/fixtures/generate_kafka_offset_gap_sample_data.scala"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   sed -n '3,20p' "$0"

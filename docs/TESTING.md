@@ -26,7 +26,7 @@ rtk docker run --rm \
   -v "$PWD/.recon-local":/recon-local \
   -w /workspace \
   apache/spark:3.5.6 \
-  -lc 'scripts/run_java_kafka_offset_gap_fixture_checks.sh'
+  -lc 'scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh'
 ```
 
 Expected final line:
@@ -70,7 +70,7 @@ Use the wrapper path for the same YAML-first flow:
 ```bash
 rtk env \
   APPLICATION_YML=/tmp/recon/application.yml \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 To prove override compatibility, add positional roots or `INPUT_ROOTS_CSV` and
@@ -90,11 +90,11 @@ Spark 3.5.x in Docker:
 ```bash
 rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 
-rtk scripts/run_java_kafka_side_topic_docker_checks.sh
+rtk scripts/validation/run_java_kafka_side_topic_docker_checks.sh
 ```
 
 The Docker wrapper starts `apache/kafka:3.7.0`, creates these topics by
-default, and then runs `scripts/run_java_kafka_side_topic_fixture_checks.sh`
+default, and then runs `scripts/validation/run_java_kafka_side_topic_fixture_checks.sh`
 inside `apache/spark:3.5.6`:
 
 | Topic | Purpose |
@@ -110,7 +110,7 @@ Inside the Spark container, `tests/fixtures/generate_kafka_side_topic_records.sc
 writes Avro object-container side-topic records to those topics and records a
 manifest at `kafka/side_topic_records.tsv`. The checker scenarios then run
 through Java `spark-submit`. The runner also invokes
-`scripts/run_java_kafka_offset_gap_check_prod.sh` once to capture production
+`scripts/check/run_java_kafka_offset_gap_check_prod.sh` once to capture production
 wrapper side-topic env propagation.
 
 The side-topic matrix file is written to:
@@ -147,7 +147,7 @@ rtk env \
   EVIDENCE_ROOT=/tmp/recon-kafka-offset-side-topic-evidence-java \
   SPARK_JARS_IVY=/tmp/recon-ivy \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_side_topic_fixture_checks.sh
+  scripts/validation/run_java_kafka_side_topic_fixture_checks.sh
 ```
 
 ## What The Docker Test Does
@@ -264,7 +264,7 @@ rtk env \
   FIXTURE_ROOT=/tmp/recon-kafka-offset-fixtures-java \
   EVIDENCE_ROOT=/tmp/recon-kafka-offset-evidence-java \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_fixture_checks.sh
+  scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh
 ```
 
 The helper rejects non-Spark-3.5 version output.
@@ -301,10 +301,10 @@ rtk docker run --rm \
   -v "$PWD/.recon-local":/recon-local \
   -w /workspace \
   apache/spark:3.5.6 \
-  -lc 'scripts/run_kafka_offset_gap_fixture_checks.sh'
+  -lc 'scripts/validation/run_kafka_offset_gap_fixture_checks.sh'
 ```
 
-This validates `scripts/check_kafka_offset_gaps.scala`, not the Java
+This validates `scripts/check/check_kafka_offset_gaps.scala`, not the Java
 `spark-submit` checker.
 
 ## Common Failures

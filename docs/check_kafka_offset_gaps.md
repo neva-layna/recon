@@ -11,7 +11,7 @@ with:
 | [ARCH.md](ARCH.md) | Runtime architecture and gap algorithm. |
 | [OPERATIONS.md](OPERATIONS.md) | Production `spark-submit` wrapper usage. |
 
-`scripts/check_kafka_offset_gaps.scala` is a standalone Spark 3.5.x
+`scripts/check/check_kafka_offset_gaps.scala` is a standalone Spark 3.5.x
 `spark-shell -i` Scala script for checking Kafka offset continuity in parquet
 data. It is intended for one Kafka topic persisted across one or more
 HDFS/parquet roots, where each root has immediate Hive-style date partition
@@ -132,7 +132,7 @@ rtk spark-shell \
   --conf 'spark.recon.metadataColumn=cactus__metadata' \
   --conf 'spark.recon.datePartitionColumn=timestampcolumn' \
   --conf 'spark.recon.runDate=2026-07-02' \
-  -i scripts/check_kafka_offset_gaps.scala
+  -i scripts/check/check_kafka_offset_gaps.scala
 ```
 
 With persisted normalized offsets:
@@ -145,7 +145,7 @@ rtk spark-shell \
   --conf 'spark.recon.normalizedOffsetsPath=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02' \
   --conf 'spark.recon.normalizedOffsetsOverwrite=true' \
   --conf 'spark.recon.runDate=2026-07-02' \
-  -i scripts/check_kafka_offset_gaps.scala
+  -i scripts/check/check_kafka_offset_gaps.scala
 ```
 
 If a launcher rejects non-`spark.*` keys, use the alias form, for example
@@ -153,7 +153,7 @@ If a launcher rejects non-`spark.*` keys, use the alias form, for example
 
 ### Production Wrapper
 
-Use `scripts/run_kafka_offset_gap_check_prod.sh` from a Hadoop edge node when
+Use `scripts/check/run_kafka_offset_gap_check_prod.sh` from a Hadoop edge node when
 you want a repeatable production command instead of a long raw `spark-shell`
 invocation. The wrapper still runs the same Scala checker through Spark 3.5
 `spark-shell -i`; it only assembles the Spark conf values and passes your input
@@ -164,7 +164,7 @@ Pass every root as a separate argument:
 ```bash
 RUN_DATE=2026-07-02 \
 NORMALIZED_OFFSETS_PATH=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02 \
-scripts/run_kafka_offset_gap_check_prod.sh \
+scripts/check/run_kafka_offset_gap_check_prod.sh \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2 \
   hdfs:///data/path/to/parquet3
@@ -174,7 +174,7 @@ You can also provide roots as a comma-separated value:
 
 ```bash
 INPUT_ROOTS_CSV='hdfs:///data/path/to/parquet1,hdfs:///data/path/to/parquet2' \
-scripts/run_kafka_offset_gap_check_prod.sh
+scripts/check/run_kafka_offset_gap_check_prod.sh
 ```
 
 The wrapper variables are:
@@ -217,7 +217,7 @@ Run with the Java production wrapper:
 ```bash
 rtk env \
   APPLICATION_YML=/etc/recon/application.yml \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 In that YAML-first wrapper flow, no positional roots are required because the
@@ -229,7 +229,7 @@ Run with wrapper Spark-conf overrides:
 rtk env \
   RUN_DATE=2026-07-02 \
   NORMALIZED_OFFSETS_PATH=hdfs:///tmp/recon/topic-normalized-offsets/run_date=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_check_prod.sh \
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2
 ```
@@ -309,7 +309,7 @@ Use the Java production wrapper for YAML-first side-topic reconciliation:
 rtk env \
   APPLICATION_YML=/etc/recon/orders-side-topic.yml \
   ENABLE_SIDE_TOPIC_PACKAGES=true \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 The YAML must include `spring.config.import: "file:./kafka-brokers.yml"`,
@@ -327,7 +327,7 @@ rtk env \
   DEAD_LETTER_TOPIC=orders-dlq \
   SIDE_TOPIC_STARTING_OFFSETS=earliest \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_check_prod.sh \
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/orders/root-a \
   hdfs:///data/orders/root-b
 ```
@@ -395,15 +395,15 @@ Production notes:
 
 ### Hadoop Sample Data
 
-Use `scripts/generate_hadoop_offset_gap_sample_data.sh` when you want a small
+Use `scripts/sample/generate_hadoop_offset_gap_sample_data.sh` when you want a small
 HDFS smoke dataset before running against production paths. It runs
-`scripts/generate_kafka_offset_gap_sample_data.scala` with Spark 3.5 and writes
+`tests/fixtures/generate_kafka_offset_gap_sample_data.scala` with Spark 3.5 and writes
 only two scenarios, not the full local fixture matrix.
 
 Generate the sample data:
 
 ```bash
-scripts/generate_hadoop_offset_gap_sample_data.sh hdfs:///tmp/recon-offset-samples
+scripts/sample/generate_hadoop_offset_gap_sample_data.sh hdfs:///tmp/recon-offset-samples
 ```
 
 This writes:
@@ -440,7 +440,7 @@ Run both sample checks:
 
 ```bash
 RUN_DATE=2026-07-02 \
-scripts/run_hadoop_offset_gap_sample_checks.sh hdfs:///tmp/recon-offset-samples
+scripts/sample/run_hadoop_offset_gap_sample_checks.sh hdfs:///tmp/recon-offset-samples
 ```
 
 Expected sample-check results:
@@ -482,18 +482,18 @@ will skip the generated partitions as current-day data.
 
 | File | Purpose |
 | --- | --- |
-| `scripts/check_kafka_offset_gaps.scala` | Main Spark 3.5 checker run with `spark-shell -i`. |
-| `scripts/run_kafka_offset_gap_check_prod.sh` | Production wrapper for checking real HDFS/parquet roots. |
+| `scripts/check/check_kafka_offset_gaps.scala` | Main Spark 3.5 checker run with `spark-shell -i`. |
+| `scripts/check/run_kafka_offset_gap_check_prod.sh` | Production wrapper for checking real HDFS/parquet roots. |
 | `src/main/java/com/reconciliation/kafka/KafkaOffsetGapChecker.java` | Java Spark SQL/DataFrame port for `spark-submit`. |
-| `scripts/run_java_kafka_offset_gap_check_prod.sh` | Production wrapper for the Java `spark-submit` checker. |
-| `scripts/run_java_kafka_side_topic_fixture_checks.sh` | Local Kafka 3.x side-topic validation runner for the Java checker. |
-| `scripts/generate_kafka_offset_gap_sample_data.scala` | Small Spark generator for the two Hadoop sample scenarios. |
-| `scripts/generate_hadoop_offset_gap_sample_data.sh` | Wrapper around the small sample generator. |
-| `scripts/run_hadoop_offset_gap_sample_checks.sh` | Wrapper that verifies the two generated sample scenarios. |
+| `scripts/check/run_java_kafka_offset_gap_check_prod.sh` | Production wrapper for the Java `spark-submit` checker. |
+| `scripts/validation/run_java_kafka_side_topic_fixture_checks.sh` | Local Kafka 3.x side-topic validation runner for the Java checker. |
+| `tests/fixtures/generate_kafka_offset_gap_sample_data.scala` | Small Spark generator for the two Hadoop sample scenarios. |
+| `scripts/sample/generate_hadoop_offset_gap_sample_data.sh` | Wrapper around the small sample generator. |
+| `scripts/sample/run_hadoop_offset_gap_sample_checks.sh` | Wrapper that verifies the two generated sample scenarios. |
 | `tests/fixtures/generate_kafka_offset_gap_fixtures.scala` | Full validation fixture generator used by the local test runner. |
 | `tests/fixtures/generate_kafka_side_topic_records.scala` | Spark fixture producer for side-topic Avro object-container records. |
-| `scripts/run_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner covering all edge cases. |
-| `scripts/run_java_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner for the Java `spark-submit` port. |
+| `scripts/validation/run_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner covering all edge cases. |
+| `scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh` | Full Docker/local validation runner for the Java `spark-submit` port. |
 
 ## Local Docker Validation
 
@@ -527,21 +527,21 @@ rtk docker run --rm \
   -v "$PWD/.recon-local":/recon-local \
   -w /workspace \
   apache/spark:3.5.6 \
-  -lc 'scripts/run_java_kafka_offset_gap_fixture_checks.sh'
+  -lc 'scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh'
 ```
 
 The Java helper uses `spark-shell` only to generate deterministic parquet
 fixtures from `tests/fixtures/generate_kafka_offset_gap_fixtures.scala`. Every
 checker scenario is then run through `spark-submit --class
 com.reconciliation.kafka.KafkaOffsetGapChecker` and the built Java jar, not
-through `spark-shell -i scripts/check_kafka_offset_gaps.scala`.
+through `spark-shell -i scripts/check/check_kafka_offset_gaps.scala`.
 
 Run the full Java side-topic matrix with Spark 3.5.x and Kafka 3.x in Docker:
 
 ```bash
 rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 
-rtk scripts/run_java_kafka_side_topic_docker_checks.sh
+rtk scripts/validation/run_java_kafka_side_topic_docker_checks.sh
 ```
 
 The Docker wrapper starts `apache/kafka:3.7.0`, creates the `orders-canary`,
@@ -578,11 +578,11 @@ rtk env \
   FIXTURE_ROOT=/tmp/recon-kafka-offset-fixtures-java \
   EVIDENCE_ROOT=/tmp/recon-kafka-offset-evidence-java \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_fixture_checks.sh
+  scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh
 ```
 
 The original Scala fixture runner remains useful as an oracle check for
-`scripts/check_kafka_offset_gaps.scala`:
+`scripts/check/check_kafka_offset_gaps.scala`:
 
 ```bash
 rtk mkdir -p .recon-local
@@ -598,7 +598,7 @@ rtk docker run --rm \
   -v "$PWD/.recon-local":/recon-local \
   -w /workspace \
   apache/spark:3.5.6 \
-  -lc 'scripts/run_kafka_offset_gap_fixture_checks.sh'
+  -lc 'scripts/validation/run_kafka_offset_gap_fixture_checks.sh'
 ```
 
 The helper first runs `spark-shell --version` and requires Spark 3.5.x evidence.
@@ -613,7 +613,7 @@ rtk env \
   FIXTURE_ROOT=/tmp/recon-kafka-offset-fixtures \
   EVIDENCE_ROOT=/tmp/recon-kafka-offset-evidence \
   RUN_DATE=2026-07-02 \
-  scripts/run_kafka_offset_gap_fixture_checks.sh
+  scripts/validation/run_kafka_offset_gap_fixture_checks.sh
 ```
 
 ## Fixture Scenarios

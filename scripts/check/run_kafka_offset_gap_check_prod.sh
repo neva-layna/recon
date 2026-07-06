@@ -4,11 +4,11 @@ set -euo pipefail
 # Production wrapper for the Spark 3.5 Kafka offset gap checker.
 #
 # Usage:
-#   scripts/run_kafka_offset_gap_check_prod.sh hdfs:///data/path/to/parquet1 hdfs:///data/path/to/parquet2 ...
+#   scripts/check/run_kafka_offset_gap_check_prod.sh hdfs:///data/path/to/parquet1 hdfs:///data/path/to/parquet2 ...
 #
 # Or:
 #   INPUT_ROOTS_CSV='hdfs:///data/path/to/parquet1,hdfs:///data/path/to/parquet2' \
-#   scripts/run_kafka_offset_gap_check_prod.sh
+#   scripts/check/run_kafka_offset_gap_check_prod.sh
 #
 # Required runtime: Spark 3.5.x with `spark-shell` available on the Hadoop edge
 # node. The script exits with the checker exit code: 0 pass, 1 data gaps/invalid

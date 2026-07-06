@@ -3,7 +3,7 @@
  *
  * This script is intentionally broader than the Hadoop sample generator. It
  * creates pass, cross-root split, gap, duplicate, invalid metadata, empty, and
- * partition-scan edge cases for `scripts/run_kafka_offset_gap_fixture_checks.sh`.
+ * partition-scan edge cases for `scripts/validation/run_kafka_offset_gap_fixture_checks.sh`.
  */
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Row}

@@ -8,7 +8,7 @@ SPARK_SUBMIT_BIN="${SPARK_SUBMIT_BIN:-spark-submit}"
 SPARK_MASTER="${SPARK_MASTER:-yarn}"
 SPARK_SQL_TIMEZONE="${SPARK_SQL_TIMEZONE:-UTC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CHECKER_JAR="${CHECKER_JAR:-$WORKSPACE_ROOT/build/libs/recon-kafka-offset-gap-checker-1.0.0.jar}"
 CHECKER_CLASS="${CHECKER_CLASS:-com.reconciliation.kafka.KafkaOffsetGapChecker}"
 
@@ -35,8 +35,8 @@ ENABLE_SIDE_TOPIC_PACKAGES="${ENABLE_SIDE_TOPIC_PACKAGES:-false}"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/run_java_kafka_offset_gap_check_prod.sh ROOT [ROOT ...]
-  INPUT_ROOTS_CSV='hdfs:///root-a,hdfs:///root-b' scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh ROOT [ROOT ...]
+  INPUT_ROOTS_CSV='hdfs:///root-a,hdfs:///root-b' scripts/check/run_java_kafka_offset_gap_check_prod.sh
 
 Build first:
   GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
@@ -48,11 +48,11 @@ Runtime:
   Side-topic reconciliation requires Kafka 3.x brokers and the Spark 3.5 Kafka connector.
 
 YAML-first examples:
-  APPLICATION_YML=/etc/recon/application.yml scripts/run_java_kafka_offset_gap_check_prod.sh
-  SPRING_CONFIG_LOCATION=file:/etc/recon/application.yml scripts/run_java_kafka_offset_gap_check_prod.sh
+  APPLICATION_YML=/etc/recon/application.yml scripts/check/run_java_kafka_offset_gap_check_prod.sh
+  SPRING_CONFIG_LOCATION=file:/etc/recon/application.yml scripts/check/run_java_kafka_offset_gap_check_prod.sh
 
 Spark-conf override example:
-  RUN_DATE=2026-07-02 scripts/run_java_kafka_offset_gap_check_prod.sh hdfs:///root-a hdfs:///root-b
+  RUN_DATE=2026-07-02 scripts/check/run_java_kafka_offset_gap_check_prod.sh hdfs:///root-a hdfs:///root-b
 
 Base environment:
   SPARK_SUBMIT_BIN              default: spark-submit

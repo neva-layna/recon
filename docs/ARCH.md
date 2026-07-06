@@ -3,7 +3,7 @@
 The checker verifies Kafka offset continuity in parquet data written under one
 or more root directories. It is implemented in two forms:
 
-- `scripts/check_kafka_offset_gaps.scala`: original Spark 3.5 `spark-shell -i`
+- `scripts/check/check_kafka_offset_gaps.scala`: original Spark 3.5 `spark-shell -i`
   script and behavior oracle.
 - `src/main/java/com/reconciliation/kafka/`: Java Spark SQL/DataFrame port
   intended for `spark-submit`.
@@ -18,7 +18,7 @@ exists only in the Java `spark-submit` checker.
 
 ```text
 operator
-  -> scripts/run_java_kafka_offset_gap_check_prod.sh
+  -> scripts/check/run_java_kafka_offset_gap_check_prod.sh
     -> spark-submit
       -> recon-kafka-offset-gap-checker-1.0.0.jar
         -> KafkaOffsetGapChecker.main
@@ -165,7 +165,7 @@ If a value exists in both YAML and Spark conf, the Spark conf value wins. The
 alias form is preferred in wrappers because some launchers preserve only
 `spark.*` keys.
 
-The Scala `scripts/check_kafka_offset_gaps.scala` checker remains a separate
+The Scala `scripts/check/check_kafka_offset_gaps.scala` checker remains a separate
 Spark 3.5 `spark-shell -i` script. It is not Spring Boot based, does not bind
 `application.yml`, and does not read Kafka side topics.
 

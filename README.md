@@ -22,8 +22,8 @@ Compatibility is intentionally narrow: Spark 3.5.x only, Spark artifacts built
 for Scala 2.12, Kafka 3.x for side-topic brokers, and Java 8-compatible checker
 bytecode. Product deliverables live at workspace-root paths such as
 `src/main/java/com/reconciliation/kafka/`,
-`scripts/run_java_kafka_offset_gap_check_prod.sh`,
-`scripts/run_java_kafka_side_topic_fixture_checks.sh`,
+`scripts/check/run_java_kafka_offset_gap_check_prod.sh`,
+`scripts/validation/run_java_kafka_side_topic_fixture_checks.sh`,
 `tests/fixtures/generate_kafka_side_topic_records.scala`, and `docs/`.
 
 ## Documentation
@@ -60,7 +60,7 @@ rtk docker run --rm \
   -v "$PWD/.recon-local":/recon-local \
   -w /workspace \
   apache/spark:3.5.6 \
-  -lc 'scripts/run_java_kafka_offset_gap_fixture_checks.sh'
+  -lc 'scripts/validation/run_java_kafka_offset_gap_fixture_checks.sh'
 ```
 
 ## Quick Spark+Kafka Docker Side-Topic Validation
@@ -71,7 +71,7 @@ Build the jar, then run the full side-topic matrix with Spark 3.5.x and Kafka
 ```bash
 rtk env GRADLE_USER_HOME=/tmp/recon-gradle ./gradlew jar
 
-rtk scripts/run_java_kafka_side_topic_docker_checks.sh
+rtk scripts/validation/run_java_kafka_side_topic_docker_checks.sh
 ```
 
 The wrapper starts `apache/kafka:3.7.0`, creates the canary/dead-letter test
@@ -99,7 +99,7 @@ Submit the Java checker with that YAML:
 ```bash
 rtk env \
   APPLICATION_YML=/etc/recon/application.yml \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 For YAML side-topic reconciliation, keep non-broker settings in
@@ -139,7 +139,7 @@ Then add the Spark Kafka runtime packages through the wrapper:
 rtk env \
   APPLICATION_YML=/etc/recon/orders-side-topic.yml \
   ENABLE_SIDE_TOPIC_PACKAGES=true \
-  scripts/run_java_kafka_offset_gap_check_prod.sh
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh
 ```
 
 ## Quick Spark-Conf Override Run
@@ -147,7 +147,7 @@ rtk env \
 ```bash
 rtk env \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_check_prod.sh \
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/path/to/parquet1 \
   hdfs:///data/path/to/parquet2
 ```
@@ -169,7 +169,7 @@ rtk env \
   DEAD_LETTER_TOPIC=orders-dlq \
   SIDE_TOPIC_STARTING_OFFSETS=earliest \
   RUN_DATE=2026-07-02 \
-  scripts/run_java_kafka_offset_gap_check_prod.sh \
+  scripts/check/run_java_kafka_offset_gap_check_prod.sh \
   hdfs:///data/orders/root-a \
   hdfs:///data/orders/root-b
 ```
