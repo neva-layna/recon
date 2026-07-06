@@ -42,7 +42,7 @@ import static org.junit.Assert.fail;
 public class KafkaOffsetGapCheckerTest {
     @Test
     public void loadsCanonicalAndAliasConfiguration() {
-        Map<String, String> conf = new HashMap<String, String>();
+        Map<String, String> conf = new HashMap<>();
         conf.put("spark.recon.inputRoots", "/data/root-a, /data/root-b");
         conf.put("spark.recon.runDate", "2026-07-02");
         conf.put("recon.metadataColumn", "meta_json");
@@ -59,22 +59,22 @@ public class KafkaOffsetGapCheckerTest {
             fixedDate("2026-07-03")
         );
 
-        assertEquals(Arrays.asList("/data/root-a", "/data/root-b"), config.inputRoots);
-        assertEquals("meta_json", config.metadataColumn);
-        assertEquals("dt", config.datePartitionColumn);
-        assertEquals(LocalDate.parse("2026-07-02"), config.runDate);
-        assertEquals("spark_conf:recon.runDate", config.runDateSource);
-        assertEquals("file:///tmp/recon-normalized", config.normalizedOffsetsPath.get());
-        assertFalse(config.normalizedOffsetsOverwrite);
-        assertFalse(config.failOnInvalidRows);
-        assertFalse(config.failOnGaps);
-        assertEquals(0L, config.missingOffsetsLimit);
-        assertFalse(config.exitOnCompletion);
+        assertEquals(Arrays.asList("/data/root-a", "/data/root-b"), config.getInputRoots());
+        assertEquals("meta_json", config.getMetadataColumn());
+        assertEquals("dt", config.getDatePartitionColumn());
+        assertEquals(LocalDate.parse("2026-07-02"), config.getRunDate());
+        assertEquals("spark_conf:recon.runDate", config.getRunDateSource());
+        assertEquals("file:///tmp/recon-normalized", config.getNormalizedOffsetsPath().get());
+        assertFalse(config.isNormalizedOffsetsOverwrite());
+        assertFalse(config.isFailOnInvalidRows());
+        assertFalse(config.isFailOnGaps());
+        assertEquals(0L, config.getMissingOffsetsLimit());
+        assertFalse(config.isExitOnCompletion());
     }
 
     @Test
     public void defaultsRunDateWhenUnset() {
-        Map<String, String> conf = new HashMap<String, String>();
+        Map<String, String> conf = new HashMap<>();
         conf.put("recon.inputRoots", "/data/root-a");
 
         CheckerConfig config = ConfigLoader.loadConfig(
@@ -82,25 +82,25 @@ public class KafkaOffsetGapCheckerTest {
             fixedDate("2026-07-04")
         );
 
-        assertEquals(LocalDate.parse("2026-07-04"), config.runDate);
-        assertEquals("driver_current_date", config.runDateSource);
-        assertEquals("cactus__metadata", config.metadataColumn);
-        assertEquals("timestampcolumn", config.datePartitionColumn);
-        assertTrue(config.normalizedOffsetsOverwrite);
-        assertTrue(config.failOnInvalidRows);
-        assertTrue(config.failOnGaps);
-        assertEquals(1000L, config.missingOffsetsLimit);
-        assertTrue(config.exitOnCompletion);
-        assertFalse(config.sideTopicConfig.isPresent());
+        assertEquals(LocalDate.parse("2026-07-04"), config.getRunDate());
+        assertEquals("driver_current_date", config.getRunDateSource());
+        assertEquals("cactus__metadata", config.getMetadataColumn());
+        assertEquals("timestampcolumn", config.getDatePartitionColumn());
+        assertTrue(config.isNormalizedOffsetsOverwrite());
+        assertTrue(config.isFailOnInvalidRows());
+        assertTrue(config.isFailOnGaps());
+        assertEquals(1000L, config.getMissingOffsetsLimit());
+        assertTrue(config.isExitOnCompletion());
+        assertFalse(config.getSideTopicConfig().isPresent());
     }
 
     @Test
     public void rejectsMissingInputRoots() {
         try {
-            ConfigLoader.loadConfig(new MapLookup(new HashMap<String, String>()), fixedDate("2026-07-04"));
+            ConfigLoader.loadConfig(new MapLookup(new HashMap<>()), fixedDate("2026-07-04"));
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             assertTrue(exit.getMessage().contains("Missing required Spark conf recon.inputRoots"));
         }
     }
@@ -122,13 +122,13 @@ public class KafkaOffsetGapCheckerTest {
 
     @Test
     public void rejectsInvalidBoolean() {
-        Map<String, String> conf = new HashMap<String, String>();
+        Map<String, String> conf = new HashMap<>();
         conf.put("recon.failOnGaps", "maybe");
         try {
             ConfigLoader.parseBoolean("recon.failOnGaps", true, new MapLookup(conf));
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             assertTrue(exit.getMessage().contains("Invalid boolean Spark conf recon.failOnGaps=maybe"));
         }
     }
@@ -136,12 +136,12 @@ public class KafkaOffsetGapCheckerTest {
     @Test
     public void formatsMissingOffsetsWithoutSpaces() {
         assertEquals("[1,2,3]", OffsetAnalytics.formatMissingOffsets(Arrays.asList(1L, 2L, 3L)));
-        assertEquals("[]", OffsetAnalytics.formatMissingOffsets(Arrays.<Long>asList()));
+        assertEquals("[]", OffsetAnalytics.formatMissingOffsets(Arrays.asList()));
     }
 
     @Test
     public void loadsSideTopicConfigurationWithAliases() {
-        Map<String, String> conf = new HashMap<String, String>();
+        Map<String, String> conf = new HashMap<>();
         conf.put("recon.inputRoots", "/data/root-a");
         conf.put("spark.recon.sideTopic.sourceTopic", "orders");
         conf.put("spark.recon.kafka.bootstrap.servers", "broker-a:9092");
@@ -151,17 +151,17 @@ public class KafkaOffsetGapCheckerTest {
 
         CheckerConfig config = ConfigLoader.loadConfig(new MapLookup(conf), fixedDate("2026-07-04"));
 
-        assertTrue(config.sideTopicConfig.isPresent());
-        assertEquals("orders", config.sideTopicConfig.get().sourceTopic);
-        assertEquals("broker-a:9092", config.sideTopicConfig.get().kafkaBootstrapServers);
-        assertEquals("orders-canary", config.sideTopicConfig.get().canaryTopic.get());
-        assertEquals("orders-dlq", config.sideTopicConfig.get().deadLetterTopic.get());
-        assertEquals("earliest", config.sideTopicConfig.get().startingOffsets);
+        assertTrue(config.getSideTopicConfig().isPresent());
+        assertEquals("orders", config.getSideTopicConfig().get().getSourceTopic());
+        assertEquals("broker-a:9092", config.getSideTopicConfig().get().getKafkaBootstrapServers());
+        assertEquals("orders-canary", config.getSideTopicConfig().get().getCanaryTopic().get());
+        assertEquals("orders-dlq", config.getSideTopicConfig().get().getDeadLetterTopic().get());
+        assertEquals("earliest", config.getSideTopicConfig().get().getStartingOffsets());
     }
 
     @Test
     public void rejectsIncompleteSideTopicConfiguration() {
-        Map<String, String> conf = new HashMap<String, String>();
+        Map<String, String> conf = new HashMap<>();
         conf.put("recon.inputRoots", "/data/root-a");
         conf.put("spark.recon.canaryTopic", "orders-canary");
 
@@ -169,7 +169,7 @@ public class KafkaOffsetGapCheckerTest {
             ConfigLoader.loadConfig(new MapLookup(conf), fixedDate("2026-07-04"));
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             assertTrue(exit.getMessage().contains("Incomplete side-topic config"));
             assertTrue(exit.getMessage().contains("recon.sourceTopic"));
             assertTrue(exit.getMessage().contains("recon.kafkaAlias"));
@@ -178,7 +178,7 @@ public class KafkaOffsetGapCheckerTest {
 
     @Test
     public void rejectsNonEarliestSideTopicReadBehavior() {
-        Map<String, String> conf = new HashMap<String, String>();
+        Map<String, String> conf = new HashMap<>();
         conf.put("recon.inputRoots", "/data/root-a");
         conf.put("spark.recon.sourceTopic", "orders");
         conf.put("spark.recon.kafkaBootstrapServers", "broker-a:9092");
@@ -189,7 +189,7 @@ public class KafkaOffsetGapCheckerTest {
             ConfigLoader.loadConfig(new MapLookup(conf), fixedDate("2026-07-04"));
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             assertTrue(exit.getMessage().contains("expected earliest or beginning"));
         }
     }
@@ -201,10 +201,10 @@ public class KafkaOffsetGapCheckerTest {
         List<SideTopicRecord> records = SideTopicAvroDecoder.decodeContainer(payload, SideTopicKind.CANARY, "orders-canary");
 
         assertEquals(1, records.size());
-        assertEquals("orders", records.get(0).sourceTopic);
-        assertEquals(0, records.get(0).sourcePartition);
-        assertEquals(3L, records.get(0).sourceOffset);
-        assertFalse(records.get(0).failureEventId.isPresent());
+        assertEquals("orders", records.get(0).getSourceTopic());
+        assertEquals(0, records.get(0).getSourcePartition());
+        assertEquals(3L, records.get(0).getSourceOffset());
+        assertFalse(records.get(0).getFailureEventId().isPresent());
     }
 
     @Test
@@ -214,28 +214,28 @@ public class KafkaOffsetGapCheckerTest {
         List<SideTopicRecord> records = SideTopicAvroDecoder.decodeContainer(payload, SideTopicKind.DEAD_LETTER, "orders-dlq");
 
         assertEquals(1, records.size());
-        assertEquals("orders", records.get(0).sourceTopic);
-        assertEquals(1, records.get(0).sourcePartition);
-        assertEquals(5L, records.get(0).sourceOffset);
-        assertEquals("evt-1", records.get(0).failureEventId.get());
-        assertEquals("bad value", records.get(0).reasonMsg.get());
-        assertEquals("IllegalStateException", records.get(0).exception.get());
+        assertEquals("orders", records.get(0).getSourceTopic());
+        assertEquals(1, records.get(0).getSourcePartition());
+        assertEquals(5L, records.get(0).getSourceOffset());
+        assertEquals("evt-1", records.get(0).getFailureEventId().get());
+        assertEquals("bad value", records.get(0).getReasonMsg().get());
+        assertEquals("IllegalStateException", records.get(0).getException().get());
     }
 
     @Test
     public void classifiesSideTopicsBySourceTopicPartitionAndOffset() {
-        Map<Integer, MissingOffsetReport> missing = new LinkedHashMap<Integer, MissingOffsetReport>();
+        Map<Integer, MissingOffsetReport> missing = new LinkedHashMap<>();
         missing.put(0, new MissingOffsetReport(Arrays.asList(1L, 2L, 3L), false));
         missing.put(1, new MissingOffsetReport(Arrays.asList(7L), false));
         GapAnalysisResult gaps = new GapAnalysisResult(2L, missing);
 
-        List<SideTopicRecord> canary = new ArrayList<SideTopicRecord>();
+        List<SideTopicRecord> canary = new ArrayList<>();
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 0, 1L));
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 0, 1L));
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "other-topic", 0, 2L));
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 9, 7L));
         canary.add(record(SideTopicKind.CANARY, "orders-canary", "orders", 0, 99L));
-        List<SideTopicRecord> deadLetter = new ArrayList<SideTopicRecord>();
+        List<SideTopicRecord> deadLetter = new ArrayList<>();
         deadLetter.add(new SideTopicRecord(
             SideTopicKind.DEAD_LETTER,
             "orders-dlq",
@@ -249,29 +249,29 @@ public class KafkaOffsetGapCheckerTest {
 
         SideTopicClassification classification = SideTopicClassifier.classify("orders", gaps, canary, deadLetter);
 
-        assertEquals(Arrays.asList(1L), classification.canaryExplainedOffsets.get(0));
-        assertEquals(Arrays.asList(2L), classification.deadLetterExplainedOffsets.get(0));
-        assertEquals(Arrays.asList(3L), classification.unresolvedOffsets.get(0));
-        assertEquals(Arrays.asList(7L), classification.unresolvedOffsets.get(1));
-        assertEquals(1L, classification.canaryExplainedCount);
-        assertEquals(1L, classification.deadLetterExplainedCount);
-        assertEquals(2L, classification.unresolvedCount);
-        assertEquals(2L, classification.rawGapPartitionCount);
-        assertEquals(4L, classification.boundedMissingOffsetCount);
-        assertEquals(5L, classification.canaryRecordCount);
-        assertEquals(1L, classification.deadLetterFailureEventIdCount);
+        assertEquals(Arrays.asList(1L), classification.getCanaryExplainedOffsets().get(0));
+        assertEquals(Arrays.asList(2L), classification.getDeadLetterExplainedOffsets().get(0));
+        assertEquals(Arrays.asList(3L), classification.getUnresolvedOffsets().get(0));
+        assertEquals(Arrays.asList(7L), classification.getUnresolvedOffsets().get(1));
+        assertEquals(1L, classification.getCanaryExplainedCount());
+        assertEquals(1L, classification.getDeadLetterExplainedCount());
+        assertEquals(2L, classification.getUnresolvedCount());
+        assertEquals(2L, classification.getRawGapPartitionCount());
+        assertEquals(4L, classification.getBoundedMissingOffsetCount());
+        assertEquals(5L, classification.getCanaryRecordCount());
+        assertEquals(1L, classification.getDeadLetterFailureEventIdCount());
     }
 
     @Test
     public void gapExitDecisionUsesUnresolvedSideTopicOffsets() {
-        Map<Integer, MissingOffsetReport> missing = new LinkedHashMap<Integer, MissingOffsetReport>();
+        Map<Integer, MissingOffsetReport> missing = new LinkedHashMap<>();
         missing.put(0, new MissingOffsetReport(Arrays.asList(1L, 2L), false));
         GapAnalysisResult gaps = new GapAnalysisResult(1L, missing);
 
         Optional<String> rawGapFailure = KafkaOffsetGapChecker.gapFailureReason(
             checkerConfig(true),
             gaps,
-            Optional.<SideTopicClassification>empty()
+            Optional.empty()
         );
         assertTrue(rawGapFailure.isPresent());
         assertTrue(rawGapFailure.get().contains("gap_partition_count=1"));
@@ -312,7 +312,7 @@ public class KafkaOffsetGapCheckerTest {
     @Test
     public void formatsSideTopicOffsetsWithoutSpaces() {
         assertEquals("[4,5]", SideTopicReconciler.formatOffsets(Arrays.asList(4L, 5L)));
-        assertEquals("[]", SideTopicReconciler.formatOffsets(Collections.<Long>emptyList()));
+        assertEquals("[]", SideTopicReconciler.formatOffsets(Collections.emptyList()));
     }
 
     private static void assertApplicationRunnerExitCode(final int code) throws Exception {
@@ -326,8 +326,8 @@ public class KafkaOffsetGapCheckerTest {
         runner.run(null);
 
         assertTrue(runner.requestedExit().isPresent());
-        assertEquals(code, runner.requestedExit().get().code);
-        assertTrue(runner.requestedExit().get().exitJvm);
+        assertEquals(code, runner.requestedExit().get().getCode());
+        assertTrue(runner.requestedExit().get().isExitJvm());
     }
 
     private static Supplier<LocalDate> fixedDate(final String date) {
@@ -350,7 +350,7 @@ public class KafkaOffsetGapCheckerTest {
         public Optional<String> get(String key) {
             String value = values.get(key);
             return value == null || value.trim().isEmpty()
-                ? Optional.<String>empty()
+                ? Optional.empty()
                 : Optional.of(value.trim());
         }
     }
@@ -368,9 +368,9 @@ public class KafkaOffsetGapCheckerTest {
             sourceTopic,
             sourcePartition,
             sourceOffset,
-            Optional.<String>empty(),
-            Optional.<String>empty(),
-            Optional.<String>empty()
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()
         );
     }
 
@@ -381,7 +381,7 @@ public class KafkaOffsetGapCheckerTest {
             "timestampcolumn",
             LocalDate.parse("2026-07-02"),
             "test",
-            Optional.<String>empty(),
+            Optional.empty(),
             true,
             true,
             failOnGaps,
@@ -407,11 +407,11 @@ public class KafkaOffsetGapCheckerTest {
     ) {
         return new SideTopicClassification(
             "orders",
-            Collections.<Integer, List<Long>>emptyMap(),
-            Collections.<Integer, List<Long>>emptyMap(),
+            Collections.emptyMap(),
+            Collections.emptyMap(),
             unresolvedCount > 0L
                 ? Collections.singletonMap(Integer.valueOf(0), Arrays.asList(2L))
-                : Collections.<Integer, List<Long>>emptyMap(),
+                : Collections.emptyMap(),
             canaryExplainedCount,
             deadLetterExplainedCount,
             unresolvedCount,
@@ -439,7 +439,7 @@ public class KafkaOffsetGapCheckerTest {
         GenericRecord record = new GenericData.Record(schema);
         record.put("sourceKey", "key-1");
         record.put("sourceValue", "value-1");
-        record.put("sourceHeaders", Collections.<String, String>emptyMap());
+        record.put("sourceHeaders", Collections.emptyMap());
         record.put("sourceTopic", sourceTopic);
         record.put("sourcePartition", sourcePartition);
         record.put("sourceOffset", sourceOffset);
@@ -451,8 +451,8 @@ public class KafkaOffsetGapCheckerTest {
         }
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        GenericDatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-        DataFileWriter<GenericRecord> writer = new DataFileWriter<GenericRecord>(datumWriter);
+        GenericDatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(schema);
+        DataFileWriter<GenericRecord> writer = new DataFileWriter<>(datumWriter);
         writer.create(schema, output);
         writer.append(record);
         writer.close();

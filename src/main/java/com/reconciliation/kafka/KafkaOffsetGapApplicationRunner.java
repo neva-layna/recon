@@ -28,7 +28,7 @@ public class KafkaOffsetGapApplicationRunner implements ApplicationRunner {
             checkerJob.run();
         } catch (ReconExit exit) {
             requestedExit = exit;
-            log.debug("Checker requested process exit code {}", exit.code);
+            log.debug("Checker requested process exit code {}", exit.getCode());
         }
     }
 

@@ -21,7 +21,7 @@ public class KafkaConfigsProperties {
     /**
      * Broker aliases keyed by operator-selected name.
      */
-    private Map<String, BrokerProperties> broker = new LinkedHashMap<String, BrokerProperties>();
+    private Map<String, BrokerProperties> broker = new LinkedHashMap<>();
 
     /**
      * Returns whether the imported broker config defines an alias.
@@ -42,7 +42,7 @@ public class KafkaConfigsProperties {
         if (broker == null || broker.isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> aliases = new ArrayList<String>(broker.keySet());
+        List<String> aliases = new ArrayList<>(broker.keySet());
         Collections.sort(aliases);
         return aliases;
     }
@@ -58,7 +58,7 @@ public class KafkaConfigsProperties {
             return Collections.emptyMap();
         }
         BrokerProperties properties = broker.get(alias);
-        return properties == null ? Collections.<String, String>emptyMap() : properties.normalizedConf();
+        return properties == null ? Collections.emptyMap() : properties.normalizedConf();
     }
 
     /**
@@ -90,7 +90,7 @@ public class KafkaConfigsProperties {
         /**
          * Kafka consumer configuration map under {@code conf}.
          */
-        private Map<String, String> conf = new LinkedHashMap<String, String>();
+        private Map<String, String> conf = new LinkedHashMap<>();
 
         /**
          * Returns normalized, non-blank Kafka consumer configuration entries.
@@ -102,7 +102,7 @@ public class KafkaConfigsProperties {
                 return Collections.emptyMap();
             }
 
-            Map<String, String> normalized = new LinkedHashMap<String, String>();
+            Map<String, String> normalized = new LinkedHashMap<>();
             for (Map.Entry<String, String> entry : conf.entrySet()) {
                 String key = normalizeKafkaPropertyName(entry.getKey());
                 String value = entry.getValue() == null ? "" : entry.getValue().trim();

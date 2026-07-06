@@ -11,16 +11,13 @@ import java.util.Set;
 import com.reconciliation.kafka.model.GapAnalysisResult;
 import com.reconciliation.kafka.model.MissingOffsetReport;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * Matches bounded missing offsets against decoded side-topic source records.
  */
+@UtilityClass
 public final class SideTopicClassifier {
-    /**
-     * Prevents construction of the classifier utility.
-     */
-    private SideTopicClassifier() {
-    }
-
     /**
      * Classifies missing offsets as canary-explained, dead-letter-explained, or
      * unresolved.
@@ -37,21 +34,21 @@ public final class SideTopicClassifier {
         List<SideTopicRecord> canaryRecords,
         List<SideTopicRecord> deadLetterRecords
     ) {
-        Set<MissingOffsetKey> missing = new LinkedHashSet<MissingOffsetKey>();
+        Set<MissingOffsetKey> missing = new LinkedHashSet<>();
         boolean truncated = false;
-        List<Integer> partitions = new ArrayList<Integer>(gaps.missingOffsetsByPartition.keySet());
+        List<Integer> partitions = new ArrayList<>(gaps.getMissingOffsetsByPartition().keySet());
         Collections.sort(partitions);
         for (Integer partition : partitions) {
-            MissingOffsetReport report = gaps.missingOffsetsByPartition.get(partition);
-            truncated = truncated || report.truncated;
-            for (Long offset : report.offsets) {
+            MissingOffsetReport report = gaps.getMissingOffsetsByPartition().get(partition);
+            truncated = truncated || report.isTruncated();
+            for (Long offset : report.getOffsets()) {
                 missing.add(new MissingOffsetKey(sourceTopic, partition, offset));
             }
         }
 
         Set<MissingOffsetKey> canaryMatched = matchingKeys(missing, canaryRecords);
         Set<MissingOffsetKey> deadLetterMatched = matchingKeys(missing, deadLetterRecords);
-        Set<MissingOffsetKey> unresolved = new LinkedHashSet<MissingOffsetKey>(missing);
+        Set<MissingOffsetKey> unresolved = new LinkedHashSet<>(missing);
         unresolved.removeAll(canaryMatched);
         unresolved.removeAll(deadLetterMatched);
 
@@ -63,7 +60,7 @@ public final class SideTopicClassifier {
             canaryMatched.size(),
             deadLetterMatched.size(),
             unresolved.size(),
-            gaps.gapPartitionCount,
+            gaps.getGapPartitionCount(),
             missing.size(),
             canaryRecords.size(),
             deadLetterRecords.size(),
@@ -83,7 +80,7 @@ public final class SideTopicClassifier {
      * @return matched missing-offset keys in encounter order
      */
     private static Set<MissingOffsetKey> matchingKeys(Set<MissingOffsetKey> missing, List<SideTopicRecord> records) {
-        Set<MissingOffsetKey> matches = new LinkedHashSet<MissingOffsetKey>();
+        Set<MissingOffsetKey> matches = new LinkedHashSet<>();
         for (SideTopicRecord record : records) {
             MissingOffsetKey key = record.key();
             if (missing.contains(key)) {
@@ -100,14 +97,14 @@ public final class SideTopicClassifier {
      * @return offsets keyed by source partition
      */
     private static Map<Integer, List<Long>> toPartitionOffsetMap(Set<MissingOffsetKey> keys) {
-        List<MissingOffsetKey> sorted = new ArrayList<MissingOffsetKey>(keys);
+        List<MissingOffsetKey> sorted = new ArrayList<>(keys);
         Collections.sort(sorted);
-        Map<Integer, List<Long>> byPartition = new LinkedHashMap<Integer, List<Long>>();
+        Map<Integer, List<Long>> byPartition = new LinkedHashMap<>();
         for (MissingOffsetKey key : sorted) {
-            if (!byPartition.containsKey(key.sourcePartition)) {
-                byPartition.put(key.sourcePartition, new ArrayList<Long>());
+            if (!byPartition.containsKey(key.getSourcePartition())) {
+                byPartition.put(key.getSourcePartition(), new ArrayList<>());
             }
-            byPartition.get(key.sourcePartition).add(key.sourceOffset);
+            byPartition.get(key.getSourcePartition()).add(key.getSourceOffset());
         }
         return byPartition;
     }
@@ -132,11 +129,11 @@ public final class SideTopicClassifier {
             }
             boolean present;
             if (field == DeadLetterField.FAILURE_EVENT_ID) {
-                present = record.failureEventId.isPresent();
+                present = record.getFailureEventId().isPresent();
             } else if (field == DeadLetterField.REASON_MSG) {
-                present = record.reasonMsg.isPresent();
+                present = record.getReasonMsg().isPresent();
             } else {
-                present = record.exception.isPresent();
+                present = record.getException().isPresent();
             }
             if (present) {
                 count++;

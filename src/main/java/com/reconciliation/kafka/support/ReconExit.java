@@ -1,17 +1,20 @@
 package com.reconciliation.kafka.support;
 
+import lombok.Getter;
+
 /**
  * Runtime signal used to stop checker flow with an intended exit code.
  */
+@Getter
 public final class ReconExit extends RuntimeException {
     /**
      * Process exit code requested by the checker.
      */
-    public final int code;
+    private final int code;
     /**
      * Whether the top-level entrypoint should call System.exit.
      */
-    public final boolean exitJvm;
+    private final boolean exitJvm;
 
     /**
      * Creates a checker termination signal.

@@ -20,19 +20,16 @@ import com.reconciliation.kafka.support.ReconExit;
 import com.reconciliation.kafka.support.ReconReporter;
 import com.reconciliation.kafka.support.RowValues;
 
+import lombok.experimental.UtilityClass;
+
 import static org.apache.spark.sql.functions.col;
 
 /**
  * Reads configured Kafka side topics and reports how they explain missing
  * offsets.
  */
+@UtilityClass
 public final class SideTopicReconciler {
-    /**
-     * Prevents construction of the reconciler utility.
-     */
-    private SideTopicReconciler() {
-    }
-
     /**
      * Runs side-topic reconciliation when side-topic config is present and
      * returns the classification needed by final exit-code decisions.
@@ -48,31 +45,31 @@ public final class SideTopicReconciler {
         CheckerConfig config,
         GapAnalysisResult gaps
     ) {
-        if (!config.sideTopicConfig.isPresent()) {
+        if (!config.getSideTopicConfig().isPresent()) {
             ReconReporter.info(ReconConstants.RECON_PREFIX + " side_topic_reconciliation state=disabled");
             return Optional.empty();
         }
 
-        SideTopicConfig sideTopicConfig = config.sideTopicConfig.get();
+        SideTopicConfig sideTopicConfig = config.getSideTopicConfig().get();
         ReconReporter.info(ReconConstants.RECON_PREFIX + " side_topic_reconciliation_begin");
         ReconReporter.info(
-            ReconConstants.RECON_PREFIX + " side_topic source_topic=" + sideTopicConfig.sourceTopic
-                + " kafka_alias=" + sideTopicConfig.kafkaAlias.orElse("<legacy-spark-conf-bootstrap>")
-                + " kafka_bootstrap_servers=" + sideTopicConfig.kafkaBootstrapServers
-                + " starting_offsets=" + sideTopicConfig.startingOffsets
-                + " canary_topic=" + sideTopicConfig.canaryTopic.orElse("<none>")
-                + " dead_letter_topic=" + sideTopicConfig.deadLetterTopic.orElse("<none>")
+            ReconConstants.RECON_PREFIX + " side_topic source_topic=" + sideTopicConfig.getSourceTopic()
+                + " kafka_alias=" + sideTopicConfig.getKafkaAlias().orElse("<legacy-spark-conf-bootstrap>")
+                + " kafka_bootstrap_servers=" + sideTopicConfig.getKafkaBootstrapServers()
+                + " starting_offsets=" + sideTopicConfig.getStartingOffsets()
+                + " canary_topic=" + sideTopicConfig.getCanaryTopic().orElse("<none>")
+                + " dead_letter_topic=" + sideTopicConfig.getDeadLetterTopic().orElse("<none>")
         );
 
-        List<SideTopicRecord> canaryRecords = sideTopicConfig.canaryTopic.isPresent()
-            ? readTopic(spark, sideTopicConfig, sideTopicConfig.canaryTopic.get(), SideTopicKind.CANARY)
-            : Collections.<SideTopicRecord>emptyList();
-        List<SideTopicRecord> deadLetterRecords = sideTopicConfig.deadLetterTopic.isPresent()
-            ? readTopic(spark, sideTopicConfig, sideTopicConfig.deadLetterTopic.get(), SideTopicKind.DEAD_LETTER)
-            : Collections.<SideTopicRecord>emptyList();
+        List<SideTopicRecord> canaryRecords = sideTopicConfig.getCanaryTopic().isPresent()
+            ? readTopic(spark, sideTopicConfig, sideTopicConfig.getCanaryTopic().get(), SideTopicKind.CANARY)
+            : Collections.emptyList();
+        List<SideTopicRecord> deadLetterRecords = sideTopicConfig.getDeadLetterTopic().isPresent()
+            ? readTopic(spark, sideTopicConfig, sideTopicConfig.getDeadLetterTopic().get(), SideTopicKind.DEAD_LETTER)
+            : Collections.emptyList();
 
         SideTopicClassification classification = SideTopicClassifier.classify(
-            sideTopicConfig.sourceTopic,
+            sideTopicConfig.getSourceTopic(),
             gaps,
             canaryRecords,
             deadLetterRecords
@@ -98,7 +95,7 @@ public final class SideTopicReconciler {
         String topic,
         SideTopicKind kind
     ) {
-        List<SideTopicRecord> decoded = new ArrayList<SideTopicRecord>();
+        List<SideTopicRecord> decoded = new ArrayList<>();
         try {
             DataFrameReader reader = spark.read().format("kafka");
             for (Map.Entry<String, String> entry : SideTopicReaderOptions.build(config, topic).entrySet()) {
@@ -135,7 +132,7 @@ public final class SideTopicReconciler {
             ReconReporter.stopNow(
                 2,
                 "Failed to read side-topic Kafka topic=" + topic
-                    + " bootstrap_servers=" + config.kafkaBootstrapServers
+                    + " bootstrap_servers=" + config.getKafkaBootstrapServers()
                     + ": " + error.getClass().getSimpleName() + ": " + error.getMessage()
             );
         }
@@ -155,25 +152,25 @@ public final class SideTopicReconciler {
      * @param classification bucketed classification to print
      */
     static void printClassification(SideTopicConfig config, SideTopicClassification classification) {
-        printBucket(classification.sourceTopic, "canary_explained", config.canaryTopic.orElse("<none>"), classification.canaryExplainedOffsets);
-        printBucket(classification.sourceTopic, "dead_letter_explained", config.deadLetterTopic.orElse("<none>"), classification.deadLetterExplainedOffsets);
-        printBucket(classification.sourceTopic, "unresolved", "<none>", classification.unresolvedOffsets);
+        printBucket(classification.getSourceTopic(), "canary_explained", config.getCanaryTopic().orElse("<none>"), classification.getCanaryExplainedOffsets());
+        printBucket(classification.getSourceTopic(), "dead_letter_explained", config.getDeadLetterTopic().orElse("<none>"), classification.getDeadLetterExplainedOffsets());
+        printBucket(classification.getSourceTopic(), "unresolved", "<none>", classification.getUnresolvedOffsets());
         ReconReporter.info(
             ReconConstants.RECON_PREFIX + " side_topic_dead_letter_fields"
-                + " failure_event_id_count=" + classification.deadLetterFailureEventIdCount
-                + " reason_msg_count=" + classification.deadLetterReasonMsgCount
-                + " exception_count=" + classification.deadLetterExceptionCount
+                + " failure_event_id_count=" + classification.getDeadLetterFailureEventIdCount()
+                + " reason_msg_count=" + classification.getDeadLetterReasonMsgCount()
+                + " exception_count=" + classification.getDeadLetterExceptionCount()
         );
         ReconReporter.info(
-            ReconConstants.RECON_PREFIX + " side_topic_summary source_topic=" + classification.sourceTopic
-                + " raw_gap_partition_count=" + classification.rawGapPartitionCount
-                + " bounded_missing_offset_count=" + classification.boundedMissingOffsetCount
-                + " canary_explained_count=" + classification.canaryExplainedCount
-                + " dead_letter_explained_count=" + classification.deadLetterExplainedCount
-                + " unresolved_count=" + classification.unresolvedCount
-                + " canary_record_count=" + classification.canaryRecordCount
-                + " dead_letter_record_count=" + classification.deadLetterRecordCount
-                + " missing_offsets_truncated=" + classification.missingOffsetsTruncated
+            ReconConstants.RECON_PREFIX + " side_topic_summary source_topic=" + classification.getSourceTopic()
+                + " raw_gap_partition_count=" + classification.getRawGapPartitionCount()
+                + " bounded_missing_offset_count=" + classification.getBoundedMissingOffsetCount()
+                + " canary_explained_count=" + classification.getCanaryExplainedCount()
+                + " dead_letter_explained_count=" + classification.getDeadLetterExplainedCount()
+                + " unresolved_count=" + classification.getUnresolvedCount()
+                + " canary_record_count=" + classification.getCanaryRecordCount()
+                + " dead_letter_record_count=" + classification.getDeadLetterRecordCount()
+                + " missing_offsets_truncated=" + classification.isMissingOffsetsTruncated()
         );
     }
 
@@ -186,10 +183,10 @@ public final class SideTopicReconciler {
      * @param offsetsByPartition offsets grouped by source partition
      */
     private static void printBucket(String sourceTopic, String bucket, String sideTopic, Map<Integer, List<Long>> offsetsByPartition) {
-        List<Integer> partitions = new ArrayList<Integer>(offsetsByPartition.keySet());
+        List<Integer> partitions = new ArrayList<>(offsetsByPartition.keySet());
         Collections.sort(partitions);
         for (Integer partition : partitions) {
-            List<Long> offsets = new ArrayList<Long>(offsetsByPartition.get(partition));
+            List<Long> offsets = new ArrayList<>(offsetsByPartition.get(partition));
             Collections.sort(offsets);
             ReconReporter.info(
                 ReconConstants.RECON_PREFIX + " side_topic_bucket=" + bucket

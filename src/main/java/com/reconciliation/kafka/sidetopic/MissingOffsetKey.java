@@ -1,27 +1,29 @@
 package com.reconciliation.kafka.sidetopic;
 
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
  * Source topic, partition, and offset tuple used to match side-topic records to
  * missing offsets.
  */
+@Getter
 @RequiredArgsConstructor
 @EqualsAndHashCode
 public final class MissingOffsetKey implements Comparable<MissingOffsetKey> {
     /**
      * Source Kafka topic name.
      */
-    public final String sourceTopic;
+    private final String sourceTopic;
     /**
      * Source Kafka partition id.
      */
-    public final int sourcePartition;
+    private final int sourcePartition;
     /**
      * Source Kafka offset.
      */
-    public final long sourceOffset;
+    private final long sourceOffset;
 
     /**
      * Orders keys by topic, partition, then offset for stable bucket output.
@@ -31,14 +33,14 @@ public final class MissingOffsetKey implements Comparable<MissingOffsetKey> {
      */
     @Override
     public int compareTo(MissingOffsetKey other) {
-        int topicCompare = sourceTopic.compareTo(other.sourceTopic);
+        int topicCompare = getSourceTopic().compareTo(other.getSourceTopic());
         if (topicCompare != 0) {
             return topicCompare;
         }
-        int partitionCompare = Integer.compare(sourcePartition, other.sourcePartition);
+        int partitionCompare = Integer.compare(getSourcePartition(), other.getSourcePartition());
         if (partitionCompare != 0) {
             return partitionCompare;
         }
-        return Long.compare(sourceOffset, other.sourceOffset);
+        return Long.compare(getSourceOffset(), other.getSourceOffset());
     }
 }

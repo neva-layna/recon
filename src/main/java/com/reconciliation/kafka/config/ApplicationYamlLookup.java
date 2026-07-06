@@ -17,7 +17,7 @@ public final class ApplicationYamlLookup implements ConfLookup {
     public Optional<String> get(String key) {
         if ("recon.inputRoots".equals(key)) {
             return properties.getInputRoots() == null || properties.getInputRoots().isEmpty()
-                ? Optional.<String>empty()
+                ? Optional.empty()
                 : Optional.of(String.join(",", properties.getInputRoots()));
         }
         if ("recon.metadataColumn".equals(key)) {
@@ -28,7 +28,7 @@ public final class ApplicationYamlLookup implements ConfLookup {
         }
         if ("recon.runDate".equals(key)) {
             return properties.getRunDate() == null
-                ? Optional.<String>empty()
+                ? Optional.empty()
                 : Optional.of(properties.getRunDate().format(ReconConstants.DATE_FORMATTER));
         }
         if ("recon.normalizedOffsetsPath".equals(key)) {
@@ -45,7 +45,7 @@ public final class ApplicationYamlLookup implements ConfLookup {
         }
         if ("recon.missingOffsetsLimit".equals(key)) {
             return properties.getMissingOffsetsLimit() == null
-                ? Optional.<String>empty()
+                ? Optional.empty()
                 : Optional.of(String.valueOf(properties.getMissingOffsetsLimit()));
         }
         if ("recon.exitOnCompletion".equals(key)) {
@@ -75,7 +75,7 @@ public final class ApplicationYamlLookup implements ConfLookup {
     }
 
     private Optional<String> bool(Boolean value) {
-        return value == null ? Optional.<String>empty() : Optional.of(String.valueOf(value));
+        return value == null ? Optional.empty() : Optional.of(String.valueOf(value));
     }
 
     private Optional<String> clean(String value) {
@@ -83,10 +83,10 @@ public final class ApplicationYamlLookup implements ConfLookup {
             return Optional.empty();
         }
         String trimmed = value.trim();
-        return trimmed.isEmpty() ? Optional.<String>empty() : Optional.of(trimmed);
+        return trimmed.isEmpty() ? Optional.empty() : Optional.of(trimmed);
     }
 
     private Optional<String> raw(String value) {
-        return value == null ? Optional.<String>empty() : Optional.of(value);
+        return value == null ? Optional.empty() : Optional.of(value);
     }
 }

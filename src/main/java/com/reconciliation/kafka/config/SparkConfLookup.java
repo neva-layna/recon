@@ -112,6 +112,6 @@ public final class SparkConfLookup implements ConfLookup {
             return Optional.empty();
         }
         String trimmed = value.trim();
-        return trimmed.isEmpty() ? Optional.<String>empty() : Optional.of(trimmed);
+        return trimmed.isEmpty() ? Optional.empty() : Optional.of(trimmed);
     }
 }

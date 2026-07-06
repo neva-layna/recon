@@ -61,7 +61,7 @@ def mergedSpringFactoriesFile = layout.buildDirectory.file('generated/springFact
 tasks.register('mergeSpringFactories') {
     outputs.file(mergedSpringFactoriesFile)
     doLast {
-        Map<String, LinkedHashSet<String>> merged = new LinkedHashMap<String, LinkedHashSet<String>>()
+        Map<String, LinkedHashSet<String>> merged = new LinkedHashMap<>()
         configurations.runtimeClasspath.resolve().each { artifact ->
             if (!artifact.name.endsWith('.jar')) {
                 return
@@ -72,7 +72,7 @@ tasks.register('mergeSpringFactories') {
                 properties.each { key, value ->
                     String propertyName = key.toString()
                     if (!merged.containsKey(propertyName)) {
-                        merged[propertyName] = new LinkedHashSet<String>()
+                        merged[propertyName] = new LinkedHashSet<>()
                     }
                     value.toString().split(',').each { item ->
                         String trimmed = item.trim()

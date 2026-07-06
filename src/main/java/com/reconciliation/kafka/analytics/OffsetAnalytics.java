@@ -20,6 +20,8 @@ import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconReporter;
 import com.reconciliation.kafka.support.RowValues;
 
+import lombok.experimental.UtilityClass;
+
 import static org.apache.spark.sql.functions.coalesce;
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.count;
@@ -35,13 +37,8 @@ import static org.apache.spark.sql.functions.sum;
 /**
  * Computes partition-level Kafka offset statistics from normalized parquet rows.
  */
+@UtilityClass
 public final class OffsetAnalytics {
-    /**
-     * Prevents construction of the analytics utility.
-     */
-    private OffsetAnalytics() {
-    }
-
     /**
      * Prints row counts, duplicate counts, per-partition gap statistics, and gap
      * summaries for normalized partition/offset pairs.
@@ -92,14 +89,14 @@ public final class OffsetAnalytics {
             ReconReporter.stopNow(2, "No Kafka partitions were available for gap analytics");
         }
         Map<Integer, MissingOffsetReport> missingOffsetReports =
-            buildMissingOffsetReports(distinctOffsets, stats, config.missingOffsetsLimit);
+            buildMissingOffsetReports(distinctOffsets, stats, config.getMissingOffsetsLimit());
 
         ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_gap_stats_begin");
         for (Row row : rows) {
             int partition = RowValues.getInt(row, "partition");
             MissingOffsetReport report = missingOffsetReports.containsKey(partition)
                 ? missingOffsetReports.get(partition)
-                : new MissingOffsetReport(Collections.<Long>emptyList(), false);
+                : new MissingOffsetReport(Collections.emptyList(), false);
             ReconReporter.info(
                 ReconConstants.RECON_PREFIX + " partition=" + partition
                     + " distinct_offset_count=" + RowValues.getLong(row, "distinct_offset_count")
@@ -109,9 +106,9 @@ public final class OffsetAnalytics {
                     + " expected_count=" + RowValues.getLong(row, "expected_count")
                     + " missing_offset_count=" + RowValues.getLong(row, "missing_offset_count")
                     + " has_gaps=" + RowValues.getBoolean(row, "has_gaps")
-                    + " missing_offsets=" + formatMissingOffsets(report.offsets)
-                    + " missing_offsets_limit=" + config.missingOffsetsLimit
-                    + " missing_offsets_truncated=" + report.truncated
+                    + " missing_offsets=" + formatMissingOffsets(report.getOffsets())
+                    + " missing_offsets_limit=" + config.getMissingOffsetsLimit()
+                    + " missing_offsets_truncated=" + report.isTruncated()
             );
         }
         ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_gap_stats_end");
@@ -134,9 +131,9 @@ public final class OffsetAnalytics {
                             + " missing_offset_count=" + RowValues.getLong(row, "missing_offset_count")
                             + " min_offset=" + RowValues.getLong(row, "min_offset")
                             + " max_offset=" + RowValues.getLong(row, "max_offset")
-                            + " missing_offsets=" + formatMissingOffsets(report.offsets)
-                            + " missing_offsets_limit=" + config.missingOffsetsLimit
-                            + " missing_offsets_truncated=" + report.truncated
+                            + " missing_offsets=" + formatMissingOffsets(report.getOffsets())
+                            + " missing_offsets_limit=" + config.getMissingOffsetsLimit()
+                            + " missing_offsets_truncated=" + report.isTruncated()
                     );
                 }
             }
@@ -165,7 +162,7 @@ public final class OffsetAnalytics {
             .select(col("partition"), col("missing_offset_count"))
             .collectAsList();
 
-        Map<Integer, List<Long>> offsetsByPartition = new HashMap<Integer, List<Long>>();
+        Map<Integer, List<Long>> offsetsByPartition = new HashMap<>();
         if (limit != 0L && !gapStats.isEmpty()) {
             WindowSpec offsetWindow = Window.partitionBy(col("partition")).orderBy(col("offset").asc());
             WindowSpec intervalWindow = Window
@@ -194,19 +191,19 @@ public final class OffsetAnalytics {
                 int partition = RowValues.getInt(row, "partition");
                 Long missingOffset = RowValues.getLong(row, "missing_offset");
                 if (!offsetsByPartition.containsKey(partition)) {
-                    offsetsByPartition.put(partition, new ArrayList<Long>());
+                    offsetsByPartition.put(partition, new ArrayList<>());
                 }
                 offsetsByPartition.get(partition).add(missingOffset);
             }
         }
 
-        Map<Integer, MissingOffsetReport> reports = new LinkedHashMap<Integer, MissingOffsetReport>();
+        Map<Integer, MissingOffsetReport> reports = new LinkedHashMap<>();
         for (Row row : gapStats) {
             int partition = RowValues.getInt(row, "partition");
             long missingCount = RowValues.getLong(row, "missing_offset_count");
             List<Long> offsets = offsetsByPartition.containsKey(partition)
                 ? offsetsByPartition.get(partition)
-                : Collections.<Long>emptyList();
+                : Collections.emptyList();
             reports.put(partition, new MissingOffsetReport(offsets, missingCount > limit));
         }
         return reports;

@@ -46,7 +46,7 @@ public class KafkaOffsetGapChecker {
                 .orElse(null);
         } catch (ReconExit exit) {
             requestedExit = exit;
-            log.debug("Spring startup surfaced checker exit code {}", exit.code);
+            log.debug("Spring startup surfaced checker exit code {}", exit.getCode());
         } catch (RuntimeException error) {
             if (!isConfigurationBindingFailure(error)) {
                 throw error;
@@ -58,8 +58,8 @@ public class KafkaOffsetGapChecker {
             }
         }
 
-        if (requestedExit != null && requestedExit.exitJvm) {
-            System.exit(requestedExit.code);
+        if (requestedExit != null && requestedExit.isExitJvm()) {
+            System.exit(requestedExit.getCode());
         }
     }
 

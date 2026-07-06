@@ -19,20 +19,17 @@ import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconExit;
 import com.reconciliation.kafka.support.ReconReporter;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * Discovers eligible Hive-style date partitions under configured input roots.
  */
+@UtilityClass
 public final class PartitionScanner {
     /**
      * Directory name date pattern accepted after the configured partition prefix.
      */
     private static final Pattern HIVE_DATE_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}$");
-
-    /**
-     * Prevents construction of the scanner utility.
-     */
-    private PartitionScanner() {
-    }
 
     /**
      * Scans one root directory and classifies immediate children as eligible,
@@ -45,13 +42,13 @@ public final class PartitionScanner {
      * @throws ReconExit when the root cannot be listed or is not a directory
      */
     public static RootScan scanRoot(SparkSession spark, String rootText, CheckerConfig config) {
-        String prefix = config.datePartitionColumn + "=";
+        String prefix = config.getDatePartitionColumn() + "=";
         FileStatus[] statuses = listImmediateChildren(spark, rootText);
 
-        List<EligiblePartition> eligible = new ArrayList<EligiblePartition>();
-        List<String> skippedRunDate = new ArrayList<String>();
-        List<String> ignoredInvalidDate = new ArrayList<String>();
-        List<String> ignoredNonMatching = new ArrayList<String>();
+        List<EligiblePartition> eligible = new ArrayList<>();
+        List<String> skippedRunDate = new ArrayList<>();
+        List<String> ignoredInvalidDate = new ArrayList<>();
+        List<String> ignoredNonMatching = new ArrayList<>();
 
         for (FileStatus status : statuses) {
             Path childPath = status.getPath();
@@ -65,7 +62,7 @@ public final class PartitionScanner {
                 }
                 try {
                     LocalDate partitionDate = LocalDate.parse(dateText, ReconConstants.DATE_FORMATTER);
-                    if (partitionDate.equals(config.runDate)) {
+                    if (partitionDate.equals(config.getRunDate())) {
                         skippedRunDate.add(childPathText);
                     } else {
                         eligible.add(new EligiblePartition(rootText, partitionDate, childPathText));
@@ -120,23 +117,23 @@ public final class PartitionScanner {
     public static void printScan(List<RootScan> scans) {
         ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_scan_begin");
         for (RootScan scan : scans) {
-            ReconReporter.info(ReconConstants.RECON_PREFIX + " root=" + scan.root);
-            ReconReporter.info(ReconConstants.RECON_PREFIX + " root=" + scan.root + " eligible_count=" + scan.eligible.size());
-            for (EligiblePartition item : scan.eligible) {
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " root=" + scan.getRoot());
+            ReconReporter.info(ReconConstants.RECON_PREFIX + " root=" + scan.getRoot() + " eligible_count=" + scan.getEligible().size());
+            for (EligiblePartition item : scan.getEligible()) {
                 ReconReporter.info(
-                    ReconConstants.RECON_PREFIX + " eligible_path root=" + scan.root
-                        + " date=" + item.date.format(ReconConstants.DATE_FORMATTER)
-                        + " path=" + item.path
+                    ReconConstants.RECON_PREFIX + " eligible_path root=" + scan.getRoot()
+                        + " date=" + item.getDate().format(ReconConstants.DATE_FORMATTER)
+                        + " path=" + item.getPath()
                 );
             }
-            for (String path : scan.skippedRunDate) {
-                ReconReporter.info(ReconConstants.RECON_PREFIX + " skipped_run_date_path root=" + scan.root + " path=" + path);
+            for (String path : scan.getSkippedRunDate()) {
+                ReconReporter.info(ReconConstants.RECON_PREFIX + " skipped_run_date_path root=" + scan.getRoot() + " path=" + path);
             }
-            for (String path : scan.ignoredInvalidDate) {
-                ReconReporter.info(ReconConstants.RECON_PREFIX + " ignored_invalid_date_path root=" + scan.root + " path=" + path);
+            for (String path : scan.getIgnoredInvalidDate()) {
+                ReconReporter.info(ReconConstants.RECON_PREFIX + " ignored_invalid_date_path root=" + scan.getRoot() + " path=" + path);
             }
-            for (String path : scan.ignoredNonMatching) {
-                ReconReporter.info(ReconConstants.RECON_PREFIX + " ignored_non_matching_path root=" + scan.root + " path=" + path);
+            for (String path : scan.getIgnoredNonMatching()) {
+                ReconReporter.info(ReconConstants.RECON_PREFIX + " ignored_non_matching_path root=" + scan.getRoot() + " path=" + path);
             }
         }
         ReconReporter.info(ReconConstants.RECON_PREFIX + " partition_scan_end");
@@ -149,10 +146,10 @@ public final class PartitionScanner {
      * @return sorted distinct path strings
      */
     public static List<String> distinctSortedPaths(List<EligiblePartition> eligiblePartitions) {
-        List<String> paths = new ArrayList<String>();
+        List<String> paths = new ArrayList<>();
         for (EligiblePartition partition : eligiblePartitions) {
-            if (!paths.contains(partition.path)) {
-                paths.add(partition.path);
+            if (!paths.contains(partition.getPath())) {
+                paths.add(partition.getPath());
             }
         }
         Collections.sort(paths);

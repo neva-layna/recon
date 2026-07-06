@@ -14,16 +14,13 @@ import java.util.function.Supplier;
 import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconReporter;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * Parses Spark configuration into checker configuration objects.
  */
+@UtilityClass
 public final class ConfigLoader {
-    /**
-     * Prevents construction of the configuration utility.
-     */
-    private ConfigLoader() {
-    }
-
     /**
      * Loads required and optional checker settings, applying defaults and
      * failing fast for invalid operator input.
@@ -59,7 +56,7 @@ public final class ConfigLoader {
         Optional<String> rootsValue = confOption("recon.inputRoots", lookup);
         List<String> roots = rootsValue.isPresent()
             ? splitCsv(rootsValue.get())
-            : Collections.<String>emptyList();
+            : Collections.emptyList();
 
         if (roots.isEmpty()) {
             ReconReporter.stopNow(
@@ -74,8 +71,8 @@ public final class ConfigLoader {
             roots,
             confOption("recon.metadataColumn", lookup).orElse("cactus__metadata"),
             confOption("recon.datePartitionColumn", lookup).orElse("timestampcolumn"),
-            runDate.date,
-            runDate.source,
+            runDate.getDate(),
+            runDate.getSource(),
             confOption("recon.normalizedOffsetsPath", lookup),
             parseBoolean("recon.normalizedOffsetsOverwrite", true, lookup),
             parseBoolean("recon.failOnInvalidRows", true, lookup),
@@ -142,7 +139,7 @@ public final class ConfigLoader {
             return Optional.empty();
         }
 
-        List<String> missing = new ArrayList<String>();
+        List<String> missing = new ArrayList<>();
         if (!sourceTopic.isPresent()) {
             missing.add("recon.sourceTopic");
         }
@@ -169,8 +166,8 @@ public final class ConfigLoader {
         }
 
         BrokerResolution broker = alias.isPresent()
-            ? resolveBrokerAlias(alias.get().value, kafkaConfigs)
-            : legacyBootstrapBroker(legacyBootstrapServers.get().value);
+            ? resolveBrokerAlias(alias.get().getValue(), kafkaConfigs)
+            : legacyBootstrapBroker(legacyBootstrapServers.get().getValue());
 
         return Optional.of(new SideTopicConfig(
             sourceTopic.get(),
@@ -186,8 +183,8 @@ public final class ConfigLoader {
         if (!value.isPresent()) {
             return value;
         }
-        return value.get().source.startsWith("application_yml:")
-            ? Optional.<ResolvedConfValue>empty()
+        return value.get().getSource().startsWith("application_yml:")
+            ? Optional.empty()
             : value;
     }
 
@@ -221,9 +218,9 @@ public final class ConfigLoader {
     }
 
     private static BrokerResolution legacyBootstrapBroker(String bootstrapServers) {
-        Map<String, String> conf = new LinkedHashMap<String, String>();
+        Map<String, String> conf = new LinkedHashMap<>();
         conf.put("bootstrap.servers", bootstrapServers.trim());
-        return new BrokerResolution(Optional.<String>empty(), conf);
+        return new BrokerResolution(Optional.empty(), conf);
     }
 
     private static String knownAliases(KafkaConfigsProperties kafkaConfigs) {
@@ -250,7 +247,7 @@ public final class ConfigLoader {
      */
     public static Optional<String> firstConfOption(ConfLookup lookup, String... keys) {
         Optional<ResolvedConfValue> value = firstConfValue(lookup, keys);
-        return value.isPresent() ? Optional.of(value.get().value) : Optional.<String>empty();
+        return value.isPresent() ? Optional.of(value.get().getValue()) : Optional.empty();
     }
 
     /**
@@ -263,7 +260,7 @@ public final class ConfigLoader {
      */
     public static Optional<String> confOption(String key, ConfLookup lookup) {
         Optional<ResolvedConfValue> value = firstConfValue(lookup, key);
-        return value.isPresent() ? Optional.of(value.get().value) : Optional.<String>empty();
+        return value.isPresent() ? Optional.of(value.get().getValue()) : Optional.empty();
     }
 
     /**
@@ -275,7 +272,7 @@ public final class ConfigLoader {
      * @return resolved value, or empty when no alias is configured
      */
     public static Optional<ResolvedConfValue> firstConfValue(ConfLookup lookup, String... keys) {
-        List<String> aliases = new ArrayList<String>();
+        List<String> aliases = new ArrayList<>();
         for (String key : keys) {
             aliases.add(key);
             String sparkAlias = "spark." + key;
@@ -358,11 +355,11 @@ public final class ConfigLoader {
         }
 
         try {
-            return new RunDateResult(LocalDate.parse(raw.get().value, ReconConstants.DATE_FORMATTER), raw.get().source);
+            return new RunDateResult(LocalDate.parse(raw.get().getValue(), ReconConstants.DATE_FORMATTER), raw.get().getSource());
         } catch (DateTimeParseException error) {
             ReconReporter.stopNow(
                 2,
-                "Invalid Spark conf recon.runDate=" + raw.get().value + "; expected yyyy-MM-dd: " + error.getMessage()
+                "Invalid Spark conf recon.runDate=" + raw.get().getValue() + "; expected yyyy-MM-dd: " + error.getMessage()
             );
             return null;
         }
@@ -375,7 +372,7 @@ public final class ConfigLoader {
      * @return trimmed non-empty values in input order
      */
     public static List<String> splitCsv(String text) {
-        List<String> values = new ArrayList<String>();
+        List<String> values = new ArrayList<>();
         for (String item : text.split(",")) {
             String trimmed = item.trim();
             if (!trimmed.isEmpty()) {

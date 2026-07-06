@@ -63,16 +63,16 @@ public class KafkaOffsetGapCheckerRunner implements CheckerJob {
 
         Dataset<Row> parquetInput = metadataNormalizerService.readEligibleParquet(eligiblePaths);
         NormalizeResult normalizeResult = metadataNormalizerService.normalizeOffsets(parquetInput, config);
-        reporterService.info(ReconConstants.RECON_PREFIX + " valid_offset_row_count=" + normalizeResult.validRows);
+        reporterService.info(ReconConstants.RECON_PREFIX + " valid_offset_row_count=" + normalizeResult.getValidRows());
 
-        Dataset<Row> analyticsInput = metadataNormalizerService.persistIfConfigured(normalizeResult.normalizedOffsets, config);
+        Dataset<Row> analyticsInput = metadataNormalizerService.persistIfConfigured(normalizeResult.getNormalizedOffsets(), config);
         GapAnalysisResult gapResult = offsetAnalyticsService.printGapStats(analyticsInput, config);
         Optional<SideTopicClassification> sideTopicClassification =
             sideTopicReconciliationService.reconcileIfConfigured(config, gapResult);
 
-        List<String> failureReasons = new ArrayList<String>();
-        if (normalizeResult.invalidRows > 0L && config.failOnInvalidRows) {
-            failureReasons.add("invalid metadata rows detected: invalid_row_count=" + normalizeResult.invalidRows);
+        List<String> failureReasons = new ArrayList<>();
+        if (normalizeResult.getInvalidRows() > 0L && config.isFailOnInvalidRows()) {
+            failureReasons.add("invalid metadata rows detected: invalid_row_count=" + normalizeResult.getInvalidRows());
         }
         Optional<String> gapFailureReason = exitDecisionService.determineGapFailureReason(
             config,
@@ -97,9 +97,9 @@ public class KafkaOffsetGapCheckerRunner implements CheckerJob {
     }
 
     private List<EligiblePartition> eligiblePartitions(List<RootScan> scans) {
-        List<EligiblePartition> eligiblePartitions = new ArrayList<EligiblePartition>();
+        List<EligiblePartition> eligiblePartitions = new ArrayList<>();
         for (RootScan scan : scans) {
-            eligiblePartitions.addAll(scan.eligible);
+            eligiblePartitions.addAll(scan.getEligible());
         }
         return eligiblePartitions;
     }
@@ -107,7 +107,7 @@ public class KafkaOffsetGapCheckerRunner implements CheckerJob {
     private String skippedRunDateDetail(List<RootScan> scans) {
         int skippedRunDateCount = 0;
         for (RootScan scan : scans) {
-            skippedRunDateCount += scan.skippedRunDate.size();
+            skippedRunDateCount += scan.getSkippedRunDate().size();
         }
         return skippedRunDateCount > 0
             ? "; skipped_run_date_partition_count=" + skippedRunDateCount

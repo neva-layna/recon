@@ -27,8 +27,8 @@ public class PartitionScanService {
      * @return scan result for each configured root
      */
     public List<RootScan> scan(CheckerConfig config) {
-        List<RootScan> scans = new ArrayList<RootScan>();
-        for (String root : config.inputRoots) {
+        List<RootScan> scans = new ArrayList<>();
+        for (String root : config.getInputRoots()) {
             scans.add(PartitionScanner.scanRoot(spark, root, config));
         }
         PartitionScanner.printScan(scans);

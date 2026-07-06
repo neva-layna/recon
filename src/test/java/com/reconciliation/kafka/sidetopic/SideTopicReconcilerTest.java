@@ -26,7 +26,7 @@ public class SideTopicReconcilerTest {
     @Before
     public void attachLogCapture() {
         reporterLogger = (Logger) LoggerFactory.getLogger(ReconReporter.class);
-        appender = new ListAppender<ILoggingEvent>();
+        appender = new ListAppender<>();
         appender.start();
         reporterLogger.addAppender(appender);
     }
@@ -47,11 +47,11 @@ public class SideTopicReconcilerTest {
             Optional.of("orders-dlq"),
             "earliest"
         );
-        Map<Integer, List<Long>> canary = new LinkedHashMap<Integer, List<Long>>();
+        Map<Integer, List<Long>> canary = new LinkedHashMap<>();
         canary.put(0, Arrays.asList(1L));
-        Map<Integer, List<Long>> deadLetter = new LinkedHashMap<Integer, List<Long>>();
+        Map<Integer, List<Long>> deadLetter = new LinkedHashMap<>();
         deadLetter.put(0, Arrays.asList(2L));
-        Map<Integer, List<Long>> unresolved = new LinkedHashMap<Integer, List<Long>>();
+        Map<Integer, List<Long>> unresolved = new LinkedHashMap<>();
         unresolved.put(1, Arrays.asList(9L));
         SideTopicClassification classification = new SideTopicClassification(
             "orders",
@@ -130,7 +130,7 @@ public class SideTopicReconcilerTest {
     }
 
     private static Map<String, String> kafkaConf() {
-        Map<String, String> conf = new LinkedHashMap<String, String>();
+        Map<String, String> conf = new LinkedHashMap<>();
         conf.put("bootstrap.servers", "broker-a:9092");
         conf.put("security.protocol", "SASL_SSL");
         conf.put("max.poll.records", "500");

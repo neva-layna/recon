@@ -13,16 +13,13 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * Decodes Avro object-container payloads read from configured Kafka side topics.
  */
+@UtilityClass
 public final class SideTopicAvroDecoder {
-    /**
-     * Prevents construction of the Avro decoder utility.
-     */
-    private SideTopicAvroDecoder() {
-    }
-
     /**
      * Decodes a Kafka value that contains one or more Avro generic records.
      *
@@ -42,9 +39,9 @@ public final class SideTopicAvroDecoder {
             throw new IOException("empty Avro object-container payload");
         }
 
-        List<SideTopicRecord> records = new ArrayList<SideTopicRecord>();
-        GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>();
-        try (DataFileStream<GenericRecord> stream = new DataFileStream<GenericRecord>(
+        List<SideTopicRecord> records = new ArrayList<>();
+        GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
+        try (DataFileStream<GenericRecord> stream = new DataFileStream<>(
             new ByteArrayInputStream(payload),
             datumReader
         )) {
@@ -203,6 +200,6 @@ public final class SideTopicAvroDecoder {
             text = value.toString();
         }
         String trimmed = text.trim();
-        return trimmed.isEmpty() ? Optional.<String>empty() : Optional.of(trimmed);
+        return trimmed.isEmpty() ? Optional.empty() : Optional.of(trimmed);
     }
 }

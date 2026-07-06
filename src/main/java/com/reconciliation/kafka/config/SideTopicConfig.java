@@ -5,38 +5,41 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import lombok.Getter;
+
 /**
  * Configuration for optional Kafka side-topic reconciliation.
  */
+@Getter
 public final class SideTopicConfig {
     /**
      * Original source topic whose missing offsets are being explained.
      */
-    public final String sourceTopic;
+    private final String sourceTopic;
     /**
      * Optional broker alias selected from kafka-brokers.yml.
      */
-    public final Optional<String> kafkaAlias;
+    private final Optional<String> kafkaAlias;
     /**
      * Kafka consumer properties from the selected broker alias.
      */
-    public final Map<String, String> kafkaConsumerConfig;
+    private final Map<String, String> kafkaConsumerConfig;
     /**
      * Kafka bootstrap server list used by Spark's Kafka reader.
      */
-    public final String kafkaBootstrapServers;
+    private final String kafkaBootstrapServers;
     /**
      * Optional canary side topic that may contain rerouted source records.
      */
-    public final Optional<String> canaryTopic;
+    private final Optional<String> canaryTopic;
     /**
      * Optional dead-letter side topic that may contain failed source records.
      */
-    public final Optional<String> deadLetterTopic;
+    private final Optional<String> deadLetterTopic;
     /**
      * Spark Kafka starting-offset mode, currently normalized to earliest.
      */
-    public final String startingOffsets;
+    private final String startingOffsets;
 
     /**
      * Creates immutable side-topic configuration.
@@ -59,7 +62,7 @@ public final class SideTopicConfig {
     ) {
         this.sourceTopic = sourceTopic;
         this.kafkaAlias = kafkaAlias;
-        this.kafkaConsumerConfig = Collections.unmodifiableMap(new LinkedHashMap<String, String>(kafkaConsumerConfig));
+        this.kafkaConsumerConfig = Collections.unmodifiableMap(new LinkedHashMap<>(kafkaConsumerConfig));
         this.kafkaBootstrapServers = this.kafkaConsumerConfig.get("bootstrap.servers");
         this.canaryTopic = canaryTopic;
         this.deadLetterTopic = deadLetterTopic;

@@ -40,44 +40,44 @@ public class KafkaOffsetGapConfigurationTest {
     public void bindsYamlAndLoadsCompleteConfig() {
         CheckerConfig config = loadFromYaml("full-application.yml");
 
-        assertEquals(Arrays.asList("/yaml/root-a", "/yaml/root-b"), config.inputRoots);
-        assertEquals("yaml_meta", config.metadataColumn);
-        assertEquals("business_date", config.datePartitionColumn);
-        assertEquals(LocalDate.parse("2026-07-05"), config.runDate);
-        assertEquals("application_yml:recon.runDate", config.runDateSource);
-        assertEquals("file:///tmp/yaml-normalized", config.normalizedOffsetsPath.get());
-        assertFalse(config.normalizedOffsetsOverwrite);
-        assertFalse(config.failOnInvalidRows);
-        assertFalse(config.failOnGaps);
-        assertEquals(7L, config.missingOffsetsLimit);
-        assertFalse(config.exitOnCompletion);
-        assertTrue(config.sideTopicConfig.isPresent());
-        assertEquals("yaml-orders", config.sideTopicConfig.get().sourceTopic);
-        assertEquals("main-kafka", config.sideTopicConfig.get().kafkaAlias.get());
-        assertEquals("main-a:9092,main-b:9092", config.sideTopicConfig.get().kafkaBootstrapServers);
-        assertEquals("SASL_SSL", config.sideTopicConfig.get().kafkaConsumerConfig.get("security.protocol"));
-        assertEquals("250", config.sideTopicConfig.get().kafkaConsumerConfig.get("max.poll.records"));
-        assertEquals("yaml-orders-canary", config.sideTopicConfig.get().canaryTopic.get());
-        assertEquals("yaml-orders-dlq", config.sideTopicConfig.get().deadLetterTopic.get());
-        assertEquals("earliest", config.sideTopicConfig.get().startingOffsets);
+        assertEquals(Arrays.asList("/yaml/root-a", "/yaml/root-b"), config.getInputRoots());
+        assertEquals("yaml_meta", config.getMetadataColumn());
+        assertEquals("business_date", config.getDatePartitionColumn());
+        assertEquals(LocalDate.parse("2026-07-05"), config.getRunDate());
+        assertEquals("application_yml:recon.runDate", config.getRunDateSource());
+        assertEquals("file:///tmp/yaml-normalized", config.getNormalizedOffsetsPath().get());
+        assertFalse(config.isNormalizedOffsetsOverwrite());
+        assertFalse(config.isFailOnInvalidRows());
+        assertFalse(config.isFailOnGaps());
+        assertEquals(7L, config.getMissingOffsetsLimit());
+        assertFalse(config.isExitOnCompletion());
+        assertTrue(config.getSideTopicConfig().isPresent());
+        assertEquals("yaml-orders", config.getSideTopicConfig().get().getSourceTopic());
+        assertEquals("main-kafka", config.getSideTopicConfig().get().getKafkaAlias().get());
+        assertEquals("main-a:9092,main-b:9092", config.getSideTopicConfig().get().getKafkaBootstrapServers());
+        assertEquals("SASL_SSL", config.getSideTopicConfig().get().getKafkaConsumerConfig().get("security.protocol"));
+        assertEquals("250", config.getSideTopicConfig().get().getKafkaConsumerConfig().get("max.poll.records"));
+        assertEquals("yaml-orders-canary", config.getSideTopicConfig().get().getCanaryTopic().get());
+        assertEquals("yaml-orders-dlq", config.getSideTopicConfig().get().getDeadLetterTopic().get());
+        assertEquals("earliest", config.getSideTopicConfig().get().getStartingOffsets());
     }
 
     @Test
     public void yamlUsesExistingDefaultsWhenOptionalValuesAreAbsent() {
         CheckerConfig config = loadFromYaml("defaults-application.yml");
 
-        assertEquals(Arrays.asList("/yaml/default-root"), config.inputRoots);
-        assertEquals("cactus__metadata", config.metadataColumn);
-        assertEquals("timestampcolumn", config.datePartitionColumn);
-        assertEquals(LocalDate.parse("2026-07-06"), config.runDate);
-        assertEquals("driver_current_date", config.runDateSource);
-        assertFalse(config.normalizedOffsetsPath.isPresent());
-        assertTrue(config.normalizedOffsetsOverwrite);
-        assertTrue(config.failOnInvalidRows);
-        assertTrue(config.failOnGaps);
-        assertEquals(1000L, config.missingOffsetsLimit);
-        assertTrue(config.exitOnCompletion);
-        assertFalse(config.sideTopicConfig.isPresent());
+        assertEquals(Arrays.asList("/yaml/default-root"), config.getInputRoots());
+        assertEquals("cactus__metadata", config.getMetadataColumn());
+        assertEquals("timestampcolumn", config.getDatePartitionColumn());
+        assertEquals(LocalDate.parse("2026-07-06"), config.getRunDate());
+        assertEquals("driver_current_date", config.getRunDateSource());
+        assertFalse(config.getNormalizedOffsetsPath().isPresent());
+        assertTrue(config.isNormalizedOffsetsOverwrite());
+        assertTrue(config.isFailOnInvalidRows());
+        assertTrue(config.isFailOnGaps());
+        assertEquals(1000L, config.getMissingOffsetsLimit());
+        assertTrue(config.isExitOnCompletion());
+        assertFalse(config.getSideTopicConfig().isPresent());
     }
 
     @Test
@@ -102,7 +102,7 @@ public class KafkaOffsetGapConfigurationTest {
             loadFromYaml("missing-roots-application.yml");
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             assertTrue(exit.getMessage().contains("Missing required Spark conf recon.inputRoots"));
         }
     }
@@ -120,7 +120,7 @@ public class KafkaOffsetGapConfigurationTest {
             loadFromYaml("incomplete-side-topic-application.yml");
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             assertTrue(exit.getMessage().contains("Incomplete side-topic config"));
             assertTrue(exit.getMessage().contains("recon.sourceTopic"));
             assertTrue(exit.getMessage().contains("recon.kafkaAlias"));
@@ -133,7 +133,7 @@ public class KafkaOffsetGapConfigurationTest {
             loadFromYaml("invalid-side-topic-offsets-application.yml");
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             assertTrue(exit.getMessage().contains("expected earliest or beginning"));
         }
     }
@@ -141,7 +141,7 @@ public class KafkaOffsetGapConfigurationTest {
     @Test
     public void sparkConfOverridesYamlForRepresentativeFields() {
         LoadedProperties yaml = loadProperties("full-application.yml");
-        Map<String, String> spark = new HashMap<String, String>();
+        Map<String, String> spark = new HashMap<>();
         spark.put("spark.recon.metadataColumn", "spark_meta");
         spark.put("spark.recon.runDate", "2026-07-04");
         spark.put("spark.recon.failOnGaps", "true");
@@ -157,25 +157,25 @@ public class KafkaOffsetGapConfigurationTest {
             fixedDate("2026-07-06")
         );
 
-        assertEquals(Arrays.asList("/yaml/root-a", "/yaml/root-b"), config.inputRoots);
-        assertEquals("spark_meta", config.metadataColumn);
-        assertEquals(LocalDate.parse("2026-07-04"), config.runDate);
-        assertEquals("spark_conf:recon.runDate", config.runDateSource);
-        assertTrue(config.failOnGaps);
-        assertEquals(99L, config.missingOffsetsLimit);
-        assertTrue(config.sideTopicConfig.isPresent());
-        assertEquals("spark-orders", config.sideTopicConfig.get().sourceTopic);
-        assertEquals("reserved-kafka", config.sideTopicConfig.get().kafkaAlias.get());
-        assertEquals("reserved-a:9092", config.sideTopicConfig.get().kafkaBootstrapServers);
-        assertEquals("yaml-orders-canary", config.sideTopicConfig.get().canaryTopic.get());
-        assertEquals("spark-orders-dlq", config.sideTopicConfig.get().deadLetterTopic.get());
-        assertEquals("earliest", config.sideTopicConfig.get().startingOffsets);
+        assertEquals(Arrays.asList("/yaml/root-a", "/yaml/root-b"), config.getInputRoots());
+        assertEquals("spark_meta", config.getMetadataColumn());
+        assertEquals(LocalDate.parse("2026-07-04"), config.getRunDate());
+        assertEquals("spark_conf:recon.runDate", config.getRunDateSource());
+        assertTrue(config.isFailOnGaps());
+        assertEquals(99L, config.getMissingOffsetsLimit());
+        assertTrue(config.getSideTopicConfig().isPresent());
+        assertEquals("spark-orders", config.getSideTopicConfig().get().getSourceTopic());
+        assertEquals("reserved-kafka", config.getSideTopicConfig().get().getKafkaAlias().get());
+        assertEquals("reserved-a:9092", config.getSideTopicConfig().get().getKafkaBootstrapServers());
+        assertEquals("yaml-orders-canary", config.getSideTopicConfig().get().getCanaryTopic().get());
+        assertEquals("spark-orders-dlq", config.getSideTopicConfig().get().getDeadLetterTopic().get());
+        assertEquals("earliest", config.getSideTopicConfig().get().getStartingOffsets());
     }
 
     @Test
     public void plainReconKafkaAliasOverrideBeatsYaml() {
         LoadedProperties yaml = loadProperties("full-application.yml");
-        Map<String, String> spark = new HashMap<String, String>();
+        Map<String, String> spark = new HashMap<>();
         spark.put("recon.kafkaAlias", "reserved-kafka");
         spark.put("recon.canaryTopic", "spark-orders-canary");
 
@@ -185,11 +185,11 @@ public class KafkaOffsetGapConfigurationTest {
             fixedDate("2026-07-06")
         );
 
-        assertTrue(config.sideTopicConfig.isPresent());
-        assertEquals("reserved-kafka", config.sideTopicConfig.get().kafkaAlias.get());
-        assertEquals("reserved-a:9092", config.sideTopicConfig.get().kafkaBootstrapServers);
-        assertEquals("spark-orders-canary", config.sideTopicConfig.get().canaryTopic.get());
-        assertEquals("yaml-orders-dlq", config.sideTopicConfig.get().deadLetterTopic.get());
+        assertTrue(config.getSideTopicConfig().isPresent());
+        assertEquals("reserved-kafka", config.getSideTopicConfig().get().getKafkaAlias().get());
+        assertEquals("reserved-a:9092", config.getSideTopicConfig().get().getKafkaBootstrapServers());
+        assertEquals("spark-orders-canary", config.getSideTopicConfig().get().getCanaryTopic().get());
+        assertEquals("yaml-orders-dlq", config.getSideTopicConfig().get().getDeadLetterTopic().get());
     }
 
     @Test
@@ -227,7 +227,7 @@ public class KafkaOffsetGapConfigurationTest {
 
     @Test
     public void legacySparkConfBootstrapOverrideStillWorks() {
-        Map<String, String> spark = new HashMap<String, String>();
+        Map<String, String> spark = new HashMap<>();
         spark.put("recon.inputRoots", "/data/root-a");
         spark.put("spark.recon.sourceTopic", "orders");
         spark.put("spark.recon.kafkaBootstrapServers", "spark-broker:9092");
@@ -235,10 +235,10 @@ public class KafkaOffsetGapConfigurationTest {
 
         CheckerConfig config = ConfigLoader.loadConfig(new MapLookup(spark), new KafkaConfigsProperties(), fixedDate("2026-07-04"));
 
-        assertTrue(config.sideTopicConfig.isPresent());
-        assertFalse(config.sideTopicConfig.get().kafkaAlias.isPresent());
-        assertEquals("spark-broker:9092", config.sideTopicConfig.get().kafkaBootstrapServers);
-        assertEquals("spark-broker:9092", config.sideTopicConfig.get().kafkaConsumerConfig.get("bootstrap.servers"));
+        assertTrue(config.getSideTopicConfig().isPresent());
+        assertFalse(config.getSideTopicConfig().get().getKafkaAlias().isPresent());
+        assertEquals("spark-broker:9092", config.getSideTopicConfig().get().getKafkaBootstrapServers());
+        assertEquals("spark-broker:9092", config.getSideTopicConfig().get().getKafkaConsumerConfig().get("bootstrap.servers"));
     }
 
     @Test
@@ -280,7 +280,7 @@ public class KafkaOffsetGapConfigurationTest {
                 fixedDate("2026-07-06")
             );
 
-            Map<String, String> options = SideTopicReaderOptions.build(config.sideTopicConfig.get(), "yaml-orders-canary");
+            Map<String, String> options = SideTopicReaderOptions.build(config.getSideTopicConfig().get(), "yaml-orders-canary");
             assertEquals("file-main:9092", options.get("kafka.bootstrap.servers"));
             assertEquals("SSL", options.get("kafka.security.protocol"));
             assertEquals("123", options.get("kafka.max.poll.records"));
@@ -336,7 +336,7 @@ public class KafkaOffsetGapConfigurationTest {
     }
 
     private static Map<String, String> sideTopicConf(String alias) {
-        Map<String, String> conf = new HashMap<String, String>();
+        Map<String, String> conf = new HashMap<>();
         conf.put("recon.inputRoots", "/data/root-a");
         conf.put("recon.sourceTopic", "orders");
         if (alias != null) {
@@ -356,9 +356,9 @@ public class KafkaOffsetGapConfigurationTest {
     private static KafkaConfigsProperties brokerConfigs(String alias, String[] entries) {
         KafkaConfigsProperties properties = new KafkaConfigsProperties();
         Map<String, KafkaConfigsProperties.BrokerProperties> brokers =
-            new LinkedHashMap<String, KafkaConfigsProperties.BrokerProperties>();
+            new LinkedHashMap<>();
         KafkaConfigsProperties.BrokerProperties broker = new KafkaConfigsProperties.BrokerProperties();
-        Map<String, String> conf = new LinkedHashMap<String, String>();
+        Map<String, String> conf = new LinkedHashMap<>();
         for (int i = 0; i + 1 < entries.length; i += 2) {
             conf.put(entries[i], entries[i + 1]);
         }
@@ -373,7 +373,7 @@ public class KafkaOffsetGapConfigurationTest {
             ConfigLoader.loadConfig(new MapLookup(conf), brokers, fixedDate("2026-07-04"));
             fail("expected ReconExit");
         } catch (ReconExit exit) {
-            assertEquals(2, exit.code);
+            assertEquals(2, exit.getCode());
             for (String message : messages) {
                 assertTrue("missing message: " + message + " in " + exit.getMessage(), exit.getMessage().contains(message));
             }
@@ -417,7 +417,7 @@ public class KafkaOffsetGapConfigurationTest {
         public Optional<String> get(String key) {
             String value = values.get(key);
             return value == null
-                ? Optional.<String>empty()
+                ? Optional.empty()
                 : Optional.of(value);
         }
     }

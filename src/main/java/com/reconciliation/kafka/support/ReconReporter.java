@@ -6,22 +6,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.reconciliation.kafka.config.CheckerConfig;
+import com.reconciliation.kafka.config.SideTopicConfig;
+
+import lombok.experimental.UtilityClass;
 
 /**
  * Emits structured reconciliation status lines and final result signals.
  */
+@UtilityClass
 public final class ReconReporter {
     private static final Logger LOG = LoggerFactory.getLogger(ReconReporter.class);
     private static final boolean LOGBACK_ACTIVE = LoggerFactory.getILoggerFactory()
         .getClass()
         .getName()
         .startsWith("ch.qos.logback.");
-
-    /**
-     * Prevents construction of the reporting utility.
-     */
-    private ReconReporter() {
-    }
 
     /**
      * Emits one stable operator-facing info line through SLF4J.
@@ -52,25 +50,26 @@ public final class ReconReporter {
      */
     public static void printConfig(CheckerConfig config) {
         info(ReconConstants.RECON_PREFIX + " resolved_configuration_begin");
-        info(ReconConstants.RECON_PREFIX + " recon.inputRoots=" + String.join(",", config.inputRoots));
-        info(ReconConstants.RECON_PREFIX + " recon.metadataColumn=" + config.metadataColumn);
-        info(ReconConstants.RECON_PREFIX + " recon.datePartitionColumn=" + config.datePartitionColumn);
-        info(ReconConstants.RECON_PREFIX + " recon.runDate=" + config.runDate.format(ReconConstants.DATE_FORMATTER));
-        info(ReconConstants.RECON_PREFIX + " recon.runDateSource=" + config.runDateSource);
-        info(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsPath=" + config.normalizedOffsetsPath.orElse("<none>"));
-        info(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsOverwrite=" + config.normalizedOffsetsOverwrite);
-        info(ReconConstants.RECON_PREFIX + " recon.failOnInvalidRows=" + config.failOnInvalidRows);
-        info(ReconConstants.RECON_PREFIX + " recon.failOnGaps=" + config.failOnGaps);
-        info(ReconConstants.RECON_PREFIX + " recon.missingOffsetsLimit=" + config.missingOffsetsLimit);
-        info(ReconConstants.RECON_PREFIX + " recon.exitOnCompletion=" + config.exitOnCompletion);
-        info(ReconConstants.RECON_PREFIX + " recon.sideTopic.enabled=" + config.sideTopicConfig.isPresent());
-        if (config.sideTopicConfig.isPresent()) {
-            info(ReconConstants.RECON_PREFIX + " recon.sourceTopic=" + config.sideTopicConfig.get().sourceTopic);
-            info(ReconConstants.RECON_PREFIX + " recon.kafkaAlias=" + config.sideTopicConfig.get().kafkaAlias.orElse("<legacy-spark-conf-bootstrap>"));
-            info(ReconConstants.RECON_PREFIX + " recon.kafkaBootstrapServers=" + config.sideTopicConfig.get().kafkaBootstrapServers);
-            info(ReconConstants.RECON_PREFIX + " recon.canaryTopic=" + config.sideTopicConfig.get().canaryTopic.orElse("<none>"));
-            info(ReconConstants.RECON_PREFIX + " recon.deadLetterTopic=" + config.sideTopicConfig.get().deadLetterTopic.orElse("<none>"));
-            info(ReconConstants.RECON_PREFIX + " recon.sideTopicStartingOffsets=" + config.sideTopicConfig.get().startingOffsets);
+        info(ReconConstants.RECON_PREFIX + " recon.inputRoots=" + String.join(",", config.getInputRoots()));
+        info(ReconConstants.RECON_PREFIX + " recon.metadataColumn=" + config.getMetadataColumn());
+        info(ReconConstants.RECON_PREFIX + " recon.datePartitionColumn=" + config.getDatePartitionColumn());
+        info(ReconConstants.RECON_PREFIX + " recon.runDate=" + config.getRunDate().format(ReconConstants.DATE_FORMATTER));
+        info(ReconConstants.RECON_PREFIX + " recon.runDateSource=" + config.getRunDateSource());
+        info(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsPath=" + config.getNormalizedOffsetsPath().orElse("<none>"));
+        info(ReconConstants.RECON_PREFIX + " recon.normalizedOffsetsOverwrite=" + config.isNormalizedOffsetsOverwrite());
+        info(ReconConstants.RECON_PREFIX + " recon.failOnInvalidRows=" + config.isFailOnInvalidRows());
+        info(ReconConstants.RECON_PREFIX + " recon.failOnGaps=" + config.isFailOnGaps());
+        info(ReconConstants.RECON_PREFIX + " recon.missingOffsetsLimit=" + config.getMissingOffsetsLimit());
+        info(ReconConstants.RECON_PREFIX + " recon.exitOnCompletion=" + config.isExitOnCompletion());
+        info(ReconConstants.RECON_PREFIX + " recon.sideTopic.enabled=" + config.getSideTopicConfig().isPresent());
+        if (config.getSideTopicConfig().isPresent()) {
+            SideTopicConfig sideTopicConfig = config.getSideTopicConfig().get();
+            info(ReconConstants.RECON_PREFIX + " recon.sourceTopic=" + sideTopicConfig.getSourceTopic());
+            info(ReconConstants.RECON_PREFIX + " recon.kafkaAlias=" + sideTopicConfig.getKafkaAlias().orElse("<legacy-spark-conf-bootstrap>"));
+            info(ReconConstants.RECON_PREFIX + " recon.kafkaBootstrapServers=" + sideTopicConfig.getKafkaBootstrapServers());
+            info(ReconConstants.RECON_PREFIX + " recon.canaryTopic=" + sideTopicConfig.getCanaryTopic().orElse("<none>"));
+            info(ReconConstants.RECON_PREFIX + " recon.deadLetterTopic=" + sideTopicConfig.getDeadLetterTopic().orElse("<none>"));
+            info(ReconConstants.RECON_PREFIX + " recon.sideTopicStartingOffsets=" + sideTopicConfig.getStartingOffsets());
         }
         info(ReconConstants.RECON_PREFIX + " resolved_configuration_end");
     }
@@ -111,7 +110,7 @@ public final class ReconReporter {
             info(ReconConstants.RECON_PREFIX + " RESULT: PASS " + passMessage);
         }
 
-        if (config.exitOnCompletion) {
+        if (config.isExitOnCompletion()) {
             throw new ReconExit(code, reasons.isEmpty() ? passMessage : String.join("; ", reasons), true);
         } else if (code != 0) {
             throw new RuntimeException(String.join("; ", reasons));

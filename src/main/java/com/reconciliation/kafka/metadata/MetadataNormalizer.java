@@ -19,6 +19,8 @@ import com.reconciliation.kafka.support.ReconConstants;
 import com.reconciliation.kafka.support.ReconReporter;
 import com.reconciliation.kafka.support.RowValues;
 
+import lombok.experimental.UtilityClass;
+
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.count;
 import static org.apache.spark.sql.functions.from_json;
@@ -33,17 +35,12 @@ import static org.apache.spark.sql.functions.when;
  * Reads eligible parquet partitions and normalizes embedded Kafka metadata into
  * partition/offset rows.
  */
+@UtilityClass
 public final class MetadataNormalizer {
     /**
      * Numeric-only pattern used before casting metadata strings to Spark numbers.
      */
     private static final String NUMERIC_PATTERN = "^[0-9]+$";
-
-    /**
-     * Prevents construction of the metadata utility.
-     */
-    private MetadataNormalizer() {
-    }
 
     /**
      * Reads all eligible parquet paths as a single Spark dataset.
@@ -80,8 +77,8 @@ public final class MetadataNormalizer {
         if (inputRows == 0L) {
             ReconReporter.stopNow(2, "Eligible parquet data contained zero rows");
         }
-        if (!Arrays.asList(input.columns()).contains(config.metadataColumn)) {
-            ReconReporter.stopNow(2, "Metadata column '" + config.metadataColumn + "' not found in eligible parquet data");
+        if (!Arrays.asList(input.columns()).contains(config.getMetadataColumn())) {
+            ReconReporter.stopNow(2, "Metadata column '" + config.getMetadataColumn() + "' not found in eligible parquet data");
         }
 
         StructType metadataSchema = new StructType()
@@ -89,12 +86,12 @@ public final class MetadataNormalizer {
             .add("offset", DataTypes.StringType, true)
             .add("_recon_corrupt_record", DataTypes.StringType, true);
 
-        Map<String, String> jsonOptions = new HashMap<String, String>();
+        Map<String, String> jsonOptions = new HashMap<>();
         jsonOptions.put("mode", "PERMISSIVE");
         jsonOptions.put("columnNameOfCorruptRecord", "_recon_corrupt_record");
 
         Dataset<Row> withParsedMetadata = input
-            .withColumn("_recon_metadata_raw", quotedColumn(config.metadataColumn).cast(DataTypes.StringType))
+            .withColumn("_recon_metadata_raw", quotedColumn(config.getMetadataColumn()).cast(DataTypes.StringType))
             .withColumn("_recon_metadata_json", from_json(col("_recon_metadata_raw"), metadataSchema, jsonOptions))
             .withColumn("_recon_partition_raw", trim(col("_recon_metadata_json.partition").cast(DataTypes.StringType)))
             .withColumn("_recon_offset_raw", trim(col("_recon_metadata_json.offset").cast(DataTypes.StringType)))
@@ -199,13 +196,13 @@ public final class MetadataNormalizer {
      *         readback fails
      */
     public static Dataset<Row> persistIfConfigured(SparkSession spark, Dataset<Row> normalized, CheckerConfig config) {
-        if (!config.normalizedOffsetsPath.isPresent()) {
+        if (!config.getNormalizedOffsetsPath().isPresent()) {
             ReconReporter.info(ReconConstants.RECON_PREFIX + " normalized_offsets_persisted=false");
             return normalized;
         }
 
-        String path = config.normalizedOffsetsPath.get();
-        SaveMode mode = config.normalizedOffsetsOverwrite ? SaveMode.Overwrite : SaveMode.ErrorIfExists;
+        String path = config.getNormalizedOffsetsPath().get();
+        SaveMode mode = config.isNormalizedOffsetsOverwrite() ? SaveMode.Overwrite : SaveMode.ErrorIfExists;
         ReconReporter.info(ReconConstants.RECON_PREFIX + " normalized_offsets_persisted=true path=" + path + " mode=" + mode);
         try {
             normalized.write().mode(mode).parquet(path);

@@ -2,16 +2,13 @@ package com.reconciliation.kafka.support;
 
 import org.apache.spark.sql.Row;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * Typed access helpers for Spark rows produced by this checker.
  */
+@UtilityClass
 public final class RowValues {
-    /**
-     * Prevents construction of the row helper utility.
-     */
-    private RowValues() {
-    }
-
     /**
      * Reads a numeric row field as an int.
      *

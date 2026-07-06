@@ -47,24 +47,24 @@ public class ExitDecisionService {
         GapAnalysisResult gapResult,
         Optional<SideTopicClassification> sideTopicClassification
     ) {
-        if (!config.failOnGaps || gapResult.gapPartitionCount == 0L) {
+        if (!config.isFailOnGaps() || gapResult.getGapPartitionCount() == 0L) {
             return Optional.empty();
         }
 
         if (sideTopicClassification.isPresent()) {
             SideTopicClassification classification = sideTopicClassification.get();
-            if (classification.unresolvedCount > 0L) {
+            if (classification.getUnresolvedCount() > 0L) {
                 return Optional.of(
                     "unresolved offset gaps after side-topic reconciliation: raw_gap_partition_count="
-                        + gapResult.gapPartitionCount
-                        + " unresolved_count=" + classification.unresolvedCount
+                        + gapResult.getGapPartitionCount()
+                        + " unresolved_count=" + classification.getUnresolvedCount()
                 );
             }
-            if (classification.missingOffsetsTruncated) {
+            if (classification.isMissingOffsetsTruncated()) {
                 return Optional.of(
                     "missing offsets truncated after side-topic reconciliation: unresolved offsets may remain beyond materialized limit"
-                        + "; raw_gap_partition_count=" + gapResult.gapPartitionCount
-                        + " bounded_missing_offset_count=" + classification.boundedMissingOffsetCount
+                        + "; raw_gap_partition_count=" + gapResult.getGapPartitionCount()
+                        + " bounded_missing_offset_count=" + classification.getBoundedMissingOffsetCount()
                         + " missing_offsets_truncated=true"
                         + " unresolved_count=0"
                 );
@@ -72,7 +72,7 @@ public class ExitDecisionService {
             return Optional.empty();
         }
 
-        return Optional.of("offset gaps detected: gap_partition_count=" + gapResult.gapPartitionCount);
+        return Optional.of("offset gaps detected: gap_partition_count=" + gapResult.getGapPartitionCount());
     }
 
     /**
@@ -89,10 +89,10 @@ public class ExitDecisionService {
         GapAnalysisResult gapResult,
         Optional<SideTopicClassification> sideTopicClassification
     ) {
-        if (gapResult.gapPartitionCount > 0L && sideTopicClassification.isPresent()) {
+        if (gapResult.getGapPartitionCount() > 0L && sideTopicClassification.isPresent()) {
             return "side-topic reconciliation resolved all bounded missing offsets";
         }
-        if (gapResult.gapPartitionCount > 0L && !config.failOnGaps) {
+        if (gapResult.getGapPartitionCount() > 0L && !config.isFailOnGaps()) {
             return "offset gaps detected but recon.failOnGaps=false";
         }
         return "no gaps detected";
@@ -123,17 +123,17 @@ public class ExitDecisionService {
             .append(" final_exit_decision")
             .append(" code=").append(finalCode)
             .append(" reason=").append(reason.replace(' ', '_'))
-            .append(" fail_on_gaps=").append(config.failOnGaps)
-            .append(" raw_gap_partition_count=").append(gapResult.gapPartitionCount)
+            .append(" fail_on_gaps=").append(config.isFailOnGaps())
+            .append(" raw_gap_partition_count=").append(gapResult.getGapPartitionCount())
             .append(" side_topic_enabled=").append(sideTopicClassification.isPresent());
         if (sideTopicClassification.isPresent()) {
             SideTopicClassification classification = sideTopicClassification.get();
             builder
-                .append(" canary_explained_count=").append(classification.canaryExplainedCount)
-                .append(" dead_letter_explained_count=").append(classification.deadLetterExplainedCount)
-                .append(" unresolved_count=").append(classification.unresolvedCount)
-                .append(" bounded_missing_offset_count=").append(classification.boundedMissingOffsetCount)
-                .append(" missing_offsets_truncated=").append(classification.missingOffsetsTruncated);
+                .append(" canary_explained_count=").append(classification.getCanaryExplainedCount())
+                .append(" dead_letter_explained_count=").append(classification.getDeadLetterExplainedCount())
+                .append(" unresolved_count=").append(classification.getUnresolvedCount())
+                .append(" bounded_missing_offset_count=").append(classification.getBoundedMissingOffsetCount())
+                .append(" missing_offsets_truncated=").append(classification.isMissingOffsetsTruncated());
         }
         ReconReporter.info(builder.toString());
     }
