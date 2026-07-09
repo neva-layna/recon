@@ -35,6 +35,7 @@ bytecode. Product deliverables live at workspace-root paths such as
 | [ARCH.md](docs/ARCH.md) | Runtime architecture, data flow, gap algorithm. |
 | [OPERATIONS.md](docs/OPERATIONS.md) | Production wrapper usage, output, exit codes, troubleshooting. |
 | [docs/check_kafka_offset_gaps.md](docs/check_kafka_offset_gaps.md) | Full checker reference and legacy Scala-script details. |
+| [synth-data/README.md](synth-data/README.md) | Standalone synthetic-data utility build, local parquet generation, and Kafka side-topic producer usage. |
 
 ## Quick Build
 
